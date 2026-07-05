@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model aiprovider {
+  id        String   @id
+  name      String
+  slug      String   @unique(map: "AiProvider_slug_key")
+  category  String
+  apiKey    String?  @db.Text
+  baseUrl   String?
+  model     String?
+  enabled   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+}
+
+model credittransaction {
+  id           String                 @id
+  userId       String
+  amount       Int
+  type         credittransaction_type
+  description  String
+  generationId String?
+  createdAt    DateTime               @default(now())
+  generation   generation?            @relation(fields: [generationId], references: [id], map: "CreditTransaction_generationId_fkey")
+  user         user                   @relation(fields: [userId], references: [id], onDelete: Cascade, map: "CreditTransaction_userId_fkey")
+
+  @@index([generationId], map: "CreditTransaction_generationId_fkey")
+  @@index([userId], map: "CreditTransaction_userId_idx")
+}
+
+model generation {
+  id                String              @id
+  userId            String
+  type              generation_type
+  status            generation_status   @default(COMPLETED)
+  title             String
+  input             String              @db.LongText
+  content           String?             @db.LongText
+  creditCost        Int
+  errorMessage      String?             @db.Text
+  createdAt         DateTime            @default(now())
+  credittransaction credittransaction[]
+  user              user                @relation(fields: [userId], references: [id], onDelete: Cascade, map: "Generation_userId_fkey")
+
+  @@index([userId, type], map: "Generation_userId_type_idx")
+}
+
+model setting {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime
+}
+
+model user {
+  id                String              @id
+  name              String
+  email             String              @unique(map: "User_email_key")
+  passwordHash      String
+  role              user_role           @default(USER)
+  creditBalance     Int                 @default(0)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime
+  credittransaction credittransaction[]
+  generation        generation[]
+}
+
+enum generation_type {
+  SEO_KEYWORDS
+  SEO_META
+  SEO_ARTICLE
+  IMAGE_GENERATION
+}
+
+enum credittransaction_type {
+  TOPUP
+  USAGE
+  REFUND
+  BONUS
+}
+
+enum generation_status {
+  COMPLETED
+  FAILED
+}
+
+enum user_role {
+  USER
+  ADMIN
+}
