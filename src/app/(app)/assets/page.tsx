@@ -22,7 +22,8 @@ import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { usePagination } from "@/lib/use-pagination";
 
 type AssetType = "IMAGE_GENERATION" | "VIDEO_GENERATION" | "VOICE_DUB";
-type AssetStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+// FAILED generations are excluded server-side, so they never reach this page.
+type AssetStatus = "PENDING" | "PROCESSING" | "COMPLETED";
 
 interface Asset {
   id: string;
@@ -46,11 +47,10 @@ const TYPE_ICON: Record<AssetType, LucideIcon> = {
   VOICE_DUB: Mic,
 };
 
-const STATUS_BADGE: Record<AssetStatus, { label: string; variant: "neutral" | "warning" | "success" | "danger" }> = {
+const STATUS_BADGE: Record<AssetStatus, { label: string; variant: "neutral" | "warning" | "success" }> = {
   PENDING: { label: "Menunggu", variant: "neutral" },
   PROCESSING: { label: "Diproses", variant: "warning" },
   COMPLETED: { label: "Selesai", variant: "success" },
-  FAILED: { label: "Gagal", variant: "danger" },
 };
 
 const DOWNLOAD_BASE: Record<AssetType, string> = {
@@ -210,13 +210,7 @@ export default function AssetsPage() {
             ) : (
               <EmptyState
                 icon={TYPE_ICON[viewing.type]}
-                title={
-                  viewing.status === "FAILED"
-                    ? "Gagal diproses"
-                    : viewing.status === "PROCESSING"
-                      ? "Masih diproses"
-                      : "Masih menunggu"
-                }
+                title={viewing.status === "PROCESSING" ? "Masih diproses" : "Masih menunggu"}
               />
             )}
           </div>

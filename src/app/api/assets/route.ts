@@ -10,6 +10,7 @@ export async function GET() {
     where: {
       userId: session.user.id,
       type: { in: ["IMAGE_GENERATION", "VIDEO_GENERATION", "VOICE_DUB"] },
+      status: { not: "FAILED" },
     },
     orderBy: { createdAt: "desc" },
     take: 60,
