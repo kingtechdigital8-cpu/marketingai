@@ -490,8 +490,10 @@ const VOICES = [
 
 function VoiceChangerTab() {
   const { update } = useSession();
+  const [sourceMode, setSourceMode] = useState<"history" | "upload">("history");
   const [sourceVideos, setSourceVideos] = useState<HistoryItem[] | null>(null);
   const [sourceGenerationId, setSourceGenerationId] = useState("");
+  const [uploadedVideo, setUploadedVideo] = useState<{ file: File; previewUrl: string } | null>(null);
   const [text, setText] = useState("");
   const [voice, setVoice] = useState(VOICES[0].value);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -583,13 +585,30 @@ function VoiceChangerTab() {
 
   const displayedDetail = viewingDetail?.id === activeJob?.id ? activeJob : viewingDetail;
 
+  function handleUploadedVideoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    if (!file) return;
+    if (uploadedVideo) URL.revokeObjectURL(uploadedVideo.previewUrl);
+    setUploadedVideo({ file, previewUrl: URL.createObjectURL(file) });
+    e.target.value = "";
+  }
+
+  function clearUploadedVideo() {
+    if (uploadedVideo) URL.revokeObjectURL(uploadedVideo.previewUrl);
+    setUploadedVideo(null);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (isSubmitting) return;
     setError(null);
 
-    if (!sourceGenerationId) {
+    if (sourceMode === "history" && !sourceGenerationId) {
       setError("Pilih video sumber terlebih dahulu.");
+      return;
+    }
+    if (sourceMode === "upload" && !uploadedVideo) {
+      setError("Unggah video sumber terlebih dahulu.");
       return;
     }
 
@@ -602,11 +621,15 @@ function VoiceChangerTab() {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch("/api/ai/voice-changer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceGenerationId, text, voice }),
-      });
+      const formData = new FormData();
+      if (sourceMode === "history") {
+        formData.set("sourceGenerationId", sourceGenerationId);
+      } else if (uploadedVideo) {
+        formData.set("sourceVideo", uploadedVideo.file);
+      }
+      formData.set("text", text);
+      formData.set("voice", voice);
+      const res = await fetch("/api/ai/voice-changer", { method: "POST", body: formData });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Gagal memulai voice changer.");
@@ -679,26 +702,86 @@ function VoiceChangerTab() {
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-foreground">Video Sumber</label>
-              <p className="text-xs text-muted">Pilih video yang sudah selesai dibuat di tab Generator Video.</p>
-              {sourceVideos === null ? (
-                <div className="h-10 animate-pulse rounded-lg bg-white/[.06]" />
-              ) : sourceVideos.length === 0 ? (
-                <p className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted">
-                  Belum ada video selesai. Buat video dulu di tab Generator Video.
-                </p>
-              ) : (
-                <select
-                  value={sourceGenerationId}
-                  onChange={(e) => setSourceGenerationId(e.target.value)}
-                  className="h-10 rounded-lg border border-border bg-surface px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand"
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSourceMode("history")}
+                  className={cn(
+                    "flex h-9 flex-1 items-center justify-center rounded-lg border text-sm font-medium transition-colors",
+                    sourceMode === "history"
+                      ? "border-brand bg-brand-soft text-brand"
+                      : "border-border text-muted hover:border-border-strong hover:text-foreground"
+                  )}
                 >
-                  <option value="">Pilih video...</option>
-                  {sourceVideos.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.title}
-                    </option>
-                  ))}
-                </select>
+                  Dari Riwayat
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSourceMode("upload")}
+                  className={cn(
+                    "flex h-9 flex-1 items-center justify-center rounded-lg border text-sm font-medium transition-colors",
+                    sourceMode === "upload"
+                      ? "border-brand bg-brand-soft text-brand"
+                      : "border-border text-muted hover:border-border-strong hover:text-foreground"
+                  )}
+                >
+                  Upload Video
+                </button>
+              </div>
+
+              {sourceMode === "history" ? (
+                <>
+                  <p className="text-xs text-muted">Pilih video yang sudah selesai dibuat di tab Generator Video.</p>
+                  {sourceVideos === null ? (
+                    <div className="h-10 animate-pulse rounded-lg bg-white/[.06]" />
+                  ) : sourceVideos.length === 0 ? (
+                    <p className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted">
+                      Belum ada video selesai. Buat video dulu di tab Generator Video.
+                    </p>
+                  ) : (
+                    <select
+                      value={sourceGenerationId}
+                      onChange={(e) => setSourceGenerationId(e.target.value)}
+                      className="h-10 rounded-lg border border-border bg-surface px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand"
+                    >
+                      <option value="">Pilih video...</option>
+                      {sourceVideos.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.title}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-muted">Unggah video Anda sendiri (MP4/WEBM/MOV, maksimal 50MB).</p>
+                  {uploadedVideo ? (
+                    <div className="flex items-center gap-3 rounded-lg border border-border p-2">
+                      <video src={uploadedVideo.previewUrl} className="h-16 w-24 rounded-md bg-black object-cover" />
+                      <span className="flex-1 truncate text-sm text-foreground">{uploadedVideo.file.name}</span>
+                      <button
+                        type="button"
+                        onClick={clearUploadedVideo}
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted hover:bg-white/[.06] hover:text-foreground"
+                        aria-label="Hapus video"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex h-20 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-border text-muted hover:border-border-strong hover:text-foreground">
+                      <Upload className="h-5 w-5" />
+                      <span className="text-xs">Unggah video</span>
+                      <input
+                        type="file"
+                        accept="video/mp4,video/webm,video/quicktime"
+                        onChange={handleUploadedVideoChange}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </>
               )}
             </div>
             <Textarea
