@@ -112,6 +112,10 @@ export async function submitLipsyncJob({
   return submitFalJob(FAL_LIPSYNC_SLUG, {
     video_url: videoUrl,
     audio_url: audioUrl,
+    // Default "cut_off" truncates the video down to the (often much shorter)
+    // audio length. "silence" keeps the full source video and pads the
+    // remainder with silence once the dialogue ends.
+    sync_mode: "silence",
   });
 }
 
