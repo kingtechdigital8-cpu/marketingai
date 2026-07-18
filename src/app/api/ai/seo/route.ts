@@ -4,7 +4,7 @@ import { getOpenAiClient } from "@/lib/ai-provider";
 import { isSerperConfigured, searchCompetitors, type Competitor } from "@/lib/serper";
 import { ProviderNotConfiguredError } from "@/lib/errors";
 import { chargeCreditsForGeneration, InsufficientCreditError } from "@/lib/credit";
-import { CREDIT_COSTS } from "@/lib/credit-costs";
+import { getProviderCost, roundCreditCost } from "@/lib/provider-cost";
 import { getCountry } from "@/lib/countries";
 import { getLanguageLabel } from "@/lib/languages";
 import { computeUniquenessScore } from "@/lib/uniqueness";
@@ -113,6 +113,10 @@ async function handleKeywords(
     })
   );
 
+  const openaiCost = await getProviderCost("openai-text");
+  const serperCost = competitorsEnabled ? ideas.length * (await getProviderCost("serper-search")) : 0;
+  const cost = roundCreditCost(openaiCost + serperCost);
+
   await ensureDbConnection();
   const result = await chargeCreditsForGeneration({
     userId,
@@ -120,7 +124,7 @@ async function handleKeywords(
     title: `Riset kata kunci: ${topic} (${country.label})`,
     input: { topic, businessDescription: context, country: country.code },
     content: JSON.stringify({ keywords }),
-    cost: CREDIT_COSTS.SEO_KEYWORDS,
+    cost,
   });
 
   return NextResponse.json({
@@ -156,6 +160,8 @@ async function handleMeta(userId: string, topic: string, targetKeyword?: unknown
   const raw = completion.choices[0]?.message?.content ?? "{}";
   const parsed = JSON.parse(raw);
 
+  const cost = roundCreditCost(await getProviderCost("openai-text"));
+
   await ensureDbConnection();
   const result = await chargeCreditsForGeneration({
     userId,
@@ -163,7 +169,7 @@ async function handleMeta(userId: string, topic: string, targetKeyword?: unknown
     title: `Meta description: ${topic} (${languageLabel})`,
     input: { topic, targetKeyword: keyword, language: languageCode ?? "id" },
     content: raw,
-    cost: CREDIT_COSTS.SEO_META,
+    cost,
   });
 
   return NextResponse.json({
@@ -205,7 +211,11 @@ async function handleArticle(
   });
 
   const article = completion.choices[0]?.message?.content ?? "";
-  const uniquenessScore = await computeUniquenessScore(article);
+  const { score: uniquenessScore, searchesAttempted } = await computeUniquenessScore(article);
+
+  const openaiCost = await getProviderCost("openai-text");
+  const serperCost = searchesAttempted > 0 ? searchesAttempted * (await getProviderCost("serper-search")) : 0;
+  const cost = roundCreditCost(openaiCost + serperCost);
 
   await ensureDbConnection();
   const result = await chargeCreditsForGeneration({
@@ -214,7 +224,7 @@ async function handleArticle(
     title: `Artikel SEO: ${topic} (${languageLabel})`,
     input: { topic, targetKeyword: keyword, tone: toneLabel, length: lengthKey, language: languageCode ?? "id" },
     content: JSON.stringify({ article, uniquenessScore }),
-    cost: CREDIT_COSTS.SEO_ARTICLE,
+    cost,
   });
 
   return NextResponse.json({

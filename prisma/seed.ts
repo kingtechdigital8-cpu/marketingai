@@ -38,27 +38,54 @@ async function main() {
   }
 
   const defaultProviders = [
-    { name: "OpenAI (Teks & SEO)", slug: "openai-text", category: "text", model: "gpt-4o-mini" },
-    { name: "OpenAI (Gambar)", slug: "openai-image", category: "image", model: "gpt-image-1" },
+    {
+      name: "OpenAI (Teks & SEO)",
+      slug: "openai-text",
+      category: "text",
+      model: "gpt-4o-mini",
+      baseCost: 1,
+      markupPercent: 20,
+    },
+    {
+      name: "OpenAI (Gambar)",
+      slug: "openai-image",
+      category: "image",
+      model: "gpt-image-1",
+      baseCost: 10,
+      markupPercent: 20,
+    },
     {
       name: "fal.ai (Video)",
       slug: "falai-video",
       category: "video",
       model: "fal-ai/kling-video/v3/standard/image-to-video",
+      baseCost: 45,
+      markupPercent: 20,
     },
     {
       name: "fal.ai (Voice Changer)",
       slug: "falai-lipsync",
       category: "video",
       model: "fal-ai/sync-lipsync/v2",
+      baseCost: 15,
+      markupPercent: 20,
     },
-    { name: "OpenAI (Text-to-Speech)", slug: "openai-tts", category: "audio", model: "gpt-4o-mini-tts" },
+    {
+      name: "OpenAI (Text-to-Speech)",
+      slug: "openai-tts",
+      category: "audio",
+      model: "gpt-4o-mini-tts",
+      baseCost: 3,
+      markupPercent: 20,
+    },
     {
       name: "Serper (Data Kompetitor)",
       slug: "serper-search",
       category: "search",
       model: null,
       baseUrl: "https://google.serper.dev",
+      baseCost: 0.3,
+      markupPercent: 20,
     },
   ];
 

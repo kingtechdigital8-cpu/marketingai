@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE `aiprovider` ADD COLUMN `baseCost` DOUBLE NOT NULL DEFAULT 0,
+    ADD COLUMN `markupPercent` DOUBLE NOT NULL DEFAULT 0;

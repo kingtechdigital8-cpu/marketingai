@@ -29,7 +29,7 @@ import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { CopyButton } from "@/components/ui/CopyButton";
 import { ToggleChip } from "@/components/ui/ToggleChip";
 import { CreditCostBadge } from "@/components/credits/CreditCostBadge";
-import { CREDIT_COSTS } from "@/lib/credit-costs";
+import { useCreditCosts } from "@/lib/use-credit-costs";
 import { COUNTRIES } from "@/lib/countries";
 import { LANGUAGES } from "@/lib/languages";
 import { usePagination } from "@/lib/use-pagination";
@@ -414,6 +414,7 @@ export default function SeoPage() {
 }
 
 function KeywordsTool({ onDone, onSaved }: { onDone: (balance: number) => void; onSaved: () => void }) {
+  const creditCosts = useCreditCosts();
   const [topic, setTopic] = useState("");
   const [businessDescription, setBusinessDescription] = useState("");
   const [country, setCountry] = useState("id");
@@ -492,7 +493,7 @@ function KeywordsTool({ onDone, onSaved }: { onDone: (balance: number) => void; 
           />
           {error && <ErrorNotice message={error} />}
           <div className="flex items-center justify-between pt-1">
-            <CreditCostBadge cost={CREDIT_COSTS.SEO_KEYWORDS} />
+            <CreditCostBadge cost={creditCosts.SEO_KEYWORDS} />
             <Button type="submit" isLoading={isLoading}>
               Cari Kata Kunci
             </Button>
@@ -504,6 +505,7 @@ function KeywordsTool({ onDone, onSaved }: { onDone: (balance: number) => void; 
 }
 
 function MetaTool({ onDone, onSaved }: { onDone: (balance: number) => void; onSaved: () => void }) {
+  const creditCosts = useCreditCosts();
   const [topic, setTopic] = useState("");
   const [targetKeyword, setTargetKeyword] = useState("");
   const [language, setLanguage] = useState("id");
@@ -569,7 +571,7 @@ function MetaTool({ onDone, onSaved }: { onDone: (balance: number) => void; onSa
           />
           {error && <ErrorNotice message={error} />}
           <div className="flex items-center justify-between pt-1">
-            <CreditCostBadge cost={CREDIT_COSTS.SEO_META} />
+            <CreditCostBadge cost={creditCosts.SEO_META} />
             <Button type="submit" isLoading={isLoading}>
               Buat Meta Description
             </Button>
@@ -581,6 +583,7 @@ function MetaTool({ onDone, onSaved }: { onDone: (balance: number) => void; onSa
 }
 
 function ArticleTool({ onDone, onSaved }: { onDone: (balance: number) => void; onSaved: () => void }) {
+  const creditCosts = useCreditCosts();
   const [topic, setTopic] = useState("");
   const [targetKeyword, setTargetKeyword] = useState("");
   const [tone, setTone] = useState("");
@@ -681,7 +684,7 @@ function ArticleTool({ onDone, onSaved }: { onDone: (balance: number) => void; o
           </div>
           {error && <ErrorNotice message={error} />}
           <div className="flex items-center justify-between pt-1">
-            <CreditCostBadge cost={CREDIT_COSTS.SEO_ARTICLE} />
+            <CreditCostBadge cost={creditCosts.SEO_ARTICLE} />
             <Button type="submit" isLoading={isLoading}>
               Tulis Artikel
             </Button>

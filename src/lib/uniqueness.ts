@@ -17,11 +17,13 @@ function extractSamplePhrases(article: string, count = 5): string[] {
   return picked;
 }
 
-export async function computeUniquenessScore(article: string): Promise<number | null> {
-  if (!(await isSerperConfigured())) return null;
+export async function computeUniquenessScore(
+  article: string
+): Promise<{ score: number | null; searchesAttempted: number }> {
+  if (!(await isSerperConfigured())) return { score: null, searchesAttempted: 0 };
 
   const phrases = extractSamplePhrases(article);
-  if (phrases.length === 0) return null;
+  if (phrases.length === 0) return { score: null, searchesAttempted: 0 };
 
   const results = await Promise.all(
     phrases.map(async (phrase) => {
@@ -34,8 +36,8 @@ export async function computeUniquenessScore(article: string): Promise<number | 
   );
 
   const checked = results.filter((r): r is boolean => r !== null);
-  if (checked.length === 0) return null;
+  if (checked.length === 0) return { score: null, searchesAttempted: phrases.length };
 
   const uniqueCount = checked.filter(Boolean).length;
-  return Math.round((uniqueCount / checked.length) * 100);
+  return { score: Math.round((uniqueCount / checked.length) * 100), searchesAttempted: phrases.length };
 }

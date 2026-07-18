@@ -18,6 +18,8 @@ interface AiProvider {
   baseUrl: string | null;
   apiKey: string | null;
   enabled: boolean;
+  baseCost: number;
+  markupPercent: number;
 }
 
 type ProviderForm = {
@@ -28,6 +30,8 @@ type ProviderForm = {
   baseUrl: string;
   apiKey: string;
   enabled: boolean;
+  baseCost: string;
+  markupPercent: string;
 };
 
 const emptyForm: ProviderForm = {
@@ -38,7 +42,13 @@ const emptyForm: ProviderForm = {
   baseUrl: "",
   apiKey: "",
   enabled: false,
+  baseCost: "0",
+  markupPercent: "0",
 };
+
+function computedCost(baseCost: number, markupPercent: number): number {
+  return Math.ceil(baseCost * (1 + markupPercent / 100));
+}
 
 export default function AdminAiProvidersPage() {
   const [providers, setProviders] = useState<AiProvider[] | null>(null);
@@ -66,6 +76,8 @@ export default function AdminAiProvidersPage() {
       baseUrl: provider.baseUrl ?? "",
       apiKey: provider.apiKey ?? "",
       enabled: provider.enabled,
+      baseCost: String(provider.baseCost),
+      markupPercent: String(provider.markupPercent),
     });
   }
 
@@ -76,17 +88,22 @@ export default function AdminAiProvidersPage() {
 
   async function handleSave() {
     setIsSaving(true);
+    const payload = {
+      ...form,
+      baseCost: Number(form.baseCost) || 0,
+      markupPercent: Number(form.markupPercent) || 0,
+    };
     if (editing) {
       await fetch(`/api/admin/ai-providers/${editing.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
     } else {
       await fetch("/api/admin/ai-providers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
     }
     setIsSaving(false);
@@ -112,13 +129,14 @@ export default function AdminAiProvidersPage() {
   }
 
   const modalOpen = creating || editing !== null;
+  const previewCost = computedCost(Number(form.baseCost) || 0, Number(form.markupPercent) || 0);
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Provider AI</h1>
-          <p className="text-sm text-muted">Kelola integrasi provider dan model AI yang aktif.</p>
+          <p className="text-sm text-muted">Kelola integrasi provider, model, dan biaya kredit per pemakaian.</p>
         </div>
         <Button onClick={openCreate}>
           <Plus className="h-4 w-4" />
@@ -143,6 +161,9 @@ export default function AdminAiProvidersPage() {
                   <th className="px-5 py-3 font-medium">Nama</th>
                   <th className="px-5 py-3 font-medium">Kategori</th>
                   <th className="px-5 py-3 font-medium">Model</th>
+                  <th className="px-5 py-3 font-medium">Biaya Dasar</th>
+                  <th className="px-5 py-3 font-medium">Markup</th>
+                  <th className="px-5 py-3 font-medium">Kredit/Panggilan</th>
                   <th className="px-5 py-3 font-medium">Status</th>
                   <th className="px-5 py-3 font-medium" />
                 </tr>
@@ -153,6 +174,11 @@ export default function AdminAiProvidersPage() {
                     <td className="px-5 py-3 font-medium text-foreground">{provider.name}</td>
                     <td className="px-5 py-3 text-muted capitalize">{provider.category}</td>
                     <td className="px-5 py-3 text-muted">{provider.model || "-"}</td>
+                    <td className="px-5 py-3 text-muted">{provider.baseCost}</td>
+                    <td className="px-5 py-3 text-muted">{provider.markupPercent}%</td>
+                    <td className="px-5 py-3">
+                      <Badge variant="brand">{computedCost(provider.baseCost, provider.markupPercent)} kredit</Badge>
+                    </td>
                     <td className="px-5 py-3">
                       <button onClick={() => handleToggle(provider)}>
                         <Badge variant={provider.enabled ? "success" : "neutral"}>
@@ -257,7 +283,30 @@ export default function AdminAiProvidersPage() {
             onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
             placeholder="sk-..."
           />
+          <Input
+            label="Biaya Dasar (kredit per panggilan)"
+            type="number"
+            min={0}
+            step="0.1"
+            value={form.baseCost}
+            onChange={(e) => setForm({ ...form, baseCost: e.target.value })}
+            placeholder="mis. perkiraan biaya real API dalam kredit"
+          />
+          <Input
+            label="Markup (%)"
+            type="number"
+            min={0}
+            step="1"
+            value={form.markupPercent}
+            onChange={(e) => setForm({ ...form, markupPercent: e.target.value })}
+            placeholder="mis. 20"
+          />
         </div>
+        <p className="mt-3 text-xs text-muted">
+          Kredit yang dipotong dari pengguna per panggilan provider ini:{" "}
+          <span className="font-semibold text-brand">{previewCost} kredit</span> (biaya dasar × (1 + markup%),
+          dibulatkan ke atas).
+        </p>
         <label className="mt-4 flex items-center gap-2 text-sm text-muted">
           <input
             type="checkbox"

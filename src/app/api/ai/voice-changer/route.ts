@@ -7,7 +7,7 @@ import { submitLipsyncJob } from "@/lib/fal";
 import { uploadToR2 } from "@/lib/r2";
 import { ProviderNotConfiguredError, ProviderBillingError } from "@/lib/errors";
 import { reserveCreditsForGeneration, InsufficientCreditError } from "@/lib/credit";
-import { CREDIT_COSTS } from "@/lib/credit-costs";
+import { getProviderCost, roundCreditCost } from "@/lib/provider-cost";
 import { ensureDbConnection } from "@/lib/with-db-retry";
 
 const MAX_TEXT_LENGTH = 500;
@@ -115,6 +115,10 @@ export async function POST(request: Request) {
         ? `${text.slice(0, 80)}...`
         : text;
 
+    const lipsyncCost = await getProviderCost("falai-lipsync");
+    const ttsCost = hasUploadedAudio ? 0 : await getProviderCost("openai-tts");
+    const cost = roundCreditCost(lipsyncCost + ttsCost);
+
     await ensureDbConnection();
     const result = await reserveCreditsForGeneration({
       userId: session.user.id,
@@ -132,7 +136,7 @@ export async function POST(request: Request) {
         falResponseUrl: job.responseUrl,
         falProviderSlug: job.providerSlug,
       },
-      cost: CREDIT_COSTS.VOICE_DUB,
+      cost,
     });
 
     return NextResponse.json({

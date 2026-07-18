@@ -5,7 +5,7 @@ import { generateImage, editImage } from "@/lib/openai-image";
 import { uploadToR2 } from "@/lib/r2";
 import { ProviderNotConfiguredError, ContentPolicyViolationError } from "@/lib/errors";
 import { chargeCreditsForGeneration, InsufficientCreditError } from "@/lib/credit";
-import { CREDIT_COSTS } from "@/lib/credit-costs";
+import { getProviderCost, roundCreditCost } from "@/lib/provider-cost";
 import { ensureDbConnection } from "@/lib/with-db-retry";
 
 const MIN_DIMENSION = 256;
@@ -84,6 +84,8 @@ export async function POST(request: Request) {
     const key = `images/${session.user.id}/${randomUUID()}.png`;
     const imageUrl = await uploadToR2(buffer, key, "image/png");
 
+    const cost = roundCreditCost(await getProviderCost("openai-image"));
+
     await ensureDbConnection();
     const result = await chargeCreditsForGeneration({
       userId: session.user.id,
@@ -91,7 +93,7 @@ export async function POST(request: Request) {
       title: prompt.length > 80 ? `${prompt.slice(0, 80)}...` : prompt,
       input: { prompt, style, width, height, referenceImageCount: referenceFiles.length },
       content: imageUrl,
-      cost: CREDIT_COSTS.IMAGE_GENERATION,
+      cost,
     });
 
     return NextResponse.json({

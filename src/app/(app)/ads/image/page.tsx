@@ -33,7 +33,7 @@ import { ImageGenerationLoader } from "@/components/ui/ImageGenerationLoader";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { ToggleChip } from "@/components/ui/ToggleChip";
 import { CreditCostBadge } from "@/components/credits/CreditCostBadge";
-import { CREDIT_COSTS } from "@/lib/credit-costs";
+import { useCreditCosts } from "@/lib/use-credit-costs";
 import { usePagination } from "@/lib/use-pagination";
 import { toggleListValue } from "@/lib/toggle-list";
 import { cn } from "@/lib/utils";
@@ -82,6 +82,7 @@ const STYLE_PRESETS = [
 
 export default function ImagePage() {
   const { update } = useSession();
+  const creditCosts = useCreditCosts();
   const [prompt, setPrompt] = useState("");
   const [style, setStyle] = useState("");
   const [sizePreset, setSizePreset] = useState("square");
@@ -154,9 +155,9 @@ export default function ImagePage() {
 
     const balanceRes = await fetch("/api/credits/balance");
     const balanceData = await balanceRes.json().catch(() => null);
-    if (balanceRes.ok && balanceData && balanceData.creditBalance < CREDIT_COSTS.IMAGE_GENERATION) {
+    if (balanceRes.ok && balanceData && balanceData.creditBalance < creditCosts.IMAGE_GENERATION) {
       setError(
-        `Kredit Anda tidak cukup (butuh ${CREDIT_COSTS.IMAGE_GENERATION}, sisa ${balanceData.creditBalance}).`
+        `Kredit Anda tidak cukup (butuh ${creditCosts.IMAGE_GENERATION}, sisa ${balanceData.creditBalance}).`
       );
       return;
     }
@@ -360,7 +361,7 @@ export default function ImagePage() {
             </div>
             {error && <ErrorNotice message={error} />}
             <div className="flex items-center justify-between pt-1">
-              <CreditCostBadge cost={CREDIT_COSTS.IMAGE_GENERATION} />
+              <CreditCostBadge cost={creditCosts.IMAGE_GENERATION} />
               <Button type="submit" isLoading={isLoading} disabled={customSizeInvalid}>
                 <Sparkles className="h-4 w-4" />
                 Buat Gambar

@@ -37,6 +37,8 @@ export async function POST(request: Request) {
       baseUrl: typeof body?.baseUrl === "string" ? body.baseUrl : null,
       apiKey: typeof body?.apiKey === "string" ? body.apiKey : null,
       enabled: Boolean(body?.enabled),
+      baseCost: Number.isFinite(Number(body?.baseCost)) ? Number(body.baseCost) : 0,
+      markupPercent: Number.isFinite(Number(body?.markupPercent)) ? Number(body.markupPercent) : 0,
     },
   });
 

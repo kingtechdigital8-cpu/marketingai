@@ -16,7 +16,7 @@ import { ImageGenerationLoader } from "@/components/ui/ImageGenerationLoader";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { Tabs } from "@/components/ui/Tabs";
 import { CreditCostBadge } from "@/components/credits/CreditCostBadge";
-import { CREDIT_COSTS } from "@/lib/credit-costs";
+import { useCreditCosts } from "@/lib/use-credit-costs";
 import { usePagination } from "@/lib/use-pagination";
 import { cn } from "@/lib/utils";
 
@@ -93,6 +93,7 @@ const DURATIONS: { value: "5" | "10"; label: string }[] = [
 
 function VideoGeneratorTab() {
   const { update } = useSession();
+  const creditCosts = useCreditCosts();
   const [prompt, setPrompt] = useState("");
   const [duration, setDuration] = useState<"5" | "10">("5");
   const [referenceItem, setReferenceItem] = useState<{ file: File; previewUrl: string } | null>(null);
@@ -204,9 +205,9 @@ function VideoGeneratorTab() {
 
     const balanceRes = await fetch("/api/credits/balance");
     const balanceData = await balanceRes.json().catch(() => null);
-    if (balanceRes.ok && balanceData && balanceData.creditBalance < CREDIT_COSTS.VIDEO_GENERATION) {
+    if (balanceRes.ok && balanceData && balanceData.creditBalance < creditCosts.VIDEO_GENERATION) {
       setError(
-        `Kredit Anda tidak cukup (butuh ${CREDIT_COSTS.VIDEO_GENERATION}, sisa ${balanceData.creditBalance}).`
+        `Kredit Anda tidak cukup (butuh ${creditCosts.VIDEO_GENERATION}, sisa ${balanceData.creditBalance}).`
       );
       return;
     }
@@ -230,7 +231,7 @@ function VideoGeneratorTab() {
         status: data.status,
         content: null,
         errorMessage: null,
-        creditCost: CREDIT_COSTS.VIDEO_GENERATION,
+        creditCost: creditCosts.VIDEO_GENERATION,
         createdAt: new Date().toISOString(),
       });
       await update({ creditBalance: data.creditBalance });
@@ -355,7 +356,7 @@ function VideoGeneratorTab() {
             </div>
             {error && <ErrorNotice message={error} />}
             <div className="flex items-center justify-between pt-1">
-              <CreditCostBadge cost={CREDIT_COSTS.VIDEO_GENERATION} />
+              <CreditCostBadge cost={creditCosts.VIDEO_GENERATION} />
               <Button type="submit" isLoading={isSubmitting}>
                 <Sparkles className="h-4 w-4" />
                 Buat Video
@@ -490,6 +491,7 @@ const VOICES = [
 
 function VoiceChangerTab() {
   const { update } = useSession();
+  const creditCosts = useCreditCosts();
   const [sourceMode, setSourceMode] = useState<"history" | "upload">("history");
   const [sourceVideos, setSourceVideos] = useState<HistoryItem[] | null>(null);
   const [sourceGenerationId, setSourceGenerationId] = useState("");
@@ -657,8 +659,8 @@ function VoiceChangerTab() {
 
     const balanceRes = await fetch("/api/credits/balance");
     const balanceData = await balanceRes.json().catch(() => null);
-    if (balanceRes.ok && balanceData && balanceData.creditBalance < CREDIT_COSTS.VOICE_DUB) {
-      setError(`Kredit Anda tidak cukup (butuh ${CREDIT_COSTS.VOICE_DUB}, sisa ${balanceData.creditBalance}).`);
+    if (balanceRes.ok && balanceData && balanceData.creditBalance < creditCosts.VOICE_DUB) {
+      setError(`Kredit Anda tidak cukup (butuh ${creditCosts.VOICE_DUB}, sisa ${balanceData.creditBalance}).`);
       return;
     }
 
@@ -689,7 +691,7 @@ function VoiceChangerTab() {
         status: data.status,
         content: null,
         errorMessage: null,
-        creditCost: CREDIT_COSTS.VOICE_DUB,
+        creditCost: creditCosts.VOICE_DUB,
         createdAt: new Date().toISOString(),
       });
       await update({ creditBalance: data.creditBalance });
@@ -932,7 +934,7 @@ function VoiceChangerTab() {
             )}
             {error && <ErrorNotice message={error} />}
             <div className="flex items-center justify-between pt-1">
-              <CreditCostBadge cost={CREDIT_COSTS.VOICE_DUB} />
+              <CreditCostBadge cost={creditCosts.VOICE_DUB} />
               <Button type="submit" isLoading={isSubmitting}>
                 <Sparkles className="h-4 w-4" />
                 Ubah Suara

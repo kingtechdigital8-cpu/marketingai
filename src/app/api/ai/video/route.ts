@@ -5,7 +5,7 @@ import { submitVideoJob } from "@/lib/fal";
 import { uploadToR2 } from "@/lib/r2";
 import { ProviderNotConfiguredError, ProviderBillingError } from "@/lib/errors";
 import { reserveCreditsForGeneration, InsufficientCreditError } from "@/lib/credit";
-import { CREDIT_COSTS } from "@/lib/credit-costs";
+import { getProviderCost, roundCreditCost } from "@/lib/provider-cost";
 import { ensureDbConnection } from "@/lib/with-db-retry";
 
 const MAX_REFERENCE_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -54,6 +54,7 @@ export async function POST(request: Request) {
     const imageUrl = await uploadToR2(buffer, imageKey, referenceImage.type);
 
     const job = await submitVideoJob({ prompt, imageUrl, duration });
+    const cost = roundCreditCost(await getProviderCost("falai-video"));
 
     await ensureDbConnection();
     const result = await reserveCreditsForGeneration({
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
         falResponseUrl: job.responseUrl,
         falProviderSlug: job.providerSlug,
       },
-      cost: CREDIT_COSTS.VIDEO_GENERATION,
+      cost,
     });
 
     return NextResponse.json({

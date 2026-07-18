@@ -19,6 +19,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (typeof body.baseUrl === "string") data.baseUrl = body.baseUrl;
   if (typeof body.apiKey === "string") data.apiKey = body.apiKey;
   if (typeof body.enabled === "boolean") data.enabled = body.enabled;
+  if (body.baseCost !== undefined && Number.isFinite(Number(body.baseCost))) data.baseCost = Number(body.baseCost);
+  if (body.markupPercent !== undefined && Number.isFinite(Number(body.markupPercent)))
+    data.markupPercent = Number(body.markupPercent);
 
   const provider = await prisma.aiProvider.update({ where: { id }, data });
   return NextResponse.json({ provider });
