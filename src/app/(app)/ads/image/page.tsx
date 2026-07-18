@@ -149,27 +149,43 @@ export default function ImagePage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setIsLoading(true);
+    if (isLoading) return;
     setError(null);
-    const formData = new FormData();
-    formData.set("prompt", prompt);
-    formData.set("style", style);
-    formData.set("width", String(width));
-    formData.set("height", String(height));
-    for (const item of referenceItems) formData.append("referenceImages", item.file);
-    const res = await fetch("/api/ai/image", {
-      method: "POST",
-      body: formData,
-    });
-    const data = await res.json();
-    setIsLoading(false);
-    if (!res.ok) {
-      setError(data.error ?? "Gagal generate.");
+
+    const balanceRes = await fetch("/api/credits/balance");
+    const balanceData = await balanceRes.json().catch(() => null);
+    if (balanceRes.ok && balanceData && balanceData.creditBalance < CREDIT_COSTS.IMAGE_GENERATION) {
+      setError(
+        `Kredit Anda tidak cukup (butuh ${CREDIT_COSTS.IMAGE_GENERATION}, sisa ${balanceData.creditBalance}).`
+      );
       return;
     }
-    setResult({ image: data.image, generationId: data.generationId });
-    await update({ creditBalance: data.creditBalance });
-    loadHistory();
+
+    setIsLoading(true);
+    try {
+      const formData = new FormData();
+      formData.set("prompt", prompt);
+      formData.set("style", style);
+      formData.set("width", String(width));
+      formData.set("height", String(height));
+      for (const item of referenceItems) formData.append("referenceImages", item.file);
+      const res = await fetch("/api/ai/image", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Gagal generate.");
+        return;
+      }
+      setResult({ image: data.image, generationId: data.generationId });
+      await update({ creditBalance: data.creditBalance });
+      loadHistory();
+    } catch {
+      setError("Gagal terhubung ke server. Periksa koneksi Anda dan coba lagi.");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   async function openView(item: HistoryItem) {
