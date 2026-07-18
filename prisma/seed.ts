@@ -44,7 +44,7 @@ async function main() {
       name: "fal.ai (Video)",
       slug: "falai-video",
       category: "video",
-      model: "fal-ai/kling-video/v2.1/standard/image-to-video",
+      model: "fal-ai/kling-video/v3/standard/image-to-video",
     },
     {
       name: "Serper (Data Kompetitor)",

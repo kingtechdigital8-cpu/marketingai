@@ -34,7 +34,7 @@ async function getFalProvider() {
       'Provider AI "fal.ai (Video)" belum dikonfigurasi atau nonaktif. Hubungi admin untuk mengaktifkannya di Provider AI.'
     );
   }
-  return { apiKey: provider.apiKey, model: provider.model || "fal-ai/kling-video/v2.1/standard/image-to-video" };
+  return { apiKey: provider.apiKey, model: provider.model || "fal-ai/kling-video/v3/standard/image-to-video" };
 }
 
 export async function submitVideoJob({
@@ -56,8 +56,9 @@ export async function submitVideoJob({
     },
     body: JSON.stringify({
       prompt,
-      image_url: imageUrl,
+      start_image_url: imageUrl,
       duration,
+      generate_audio: true,
     }),
   });
 
