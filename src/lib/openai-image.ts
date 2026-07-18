@@ -26,7 +26,7 @@ export async function generateImage({
   prompt: string;
   width: number;
   height: number;
-}): Promise<string> {
+}): Promise<Buffer> {
   const { client, model } = await getOpenAiClient("openai-image");
   const baseSize = closestBaseSize(width, height);
 
@@ -42,10 +42,8 @@ export async function generateImage({
     throw new Error("Provider AI tidak mengembalikan data gambar.");
   }
 
-  const resized = await sharp(Buffer.from(b64, "base64"))
+  return sharp(Buffer.from(b64, "base64"))
     .resize(width, height, { fit: "cover", position: "centre" })
     .png()
     .toBuffer();
-
-  return `data:image/png;base64,${resized.toString("base64")}`;
 }

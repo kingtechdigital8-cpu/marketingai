@@ -1,6 +1,8 @@
+import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/api-auth";
 import { generateImage } from "@/lib/openai-image";
+import { uploadImageToR2 } from "@/lib/r2";
 import { ProviderNotConfiguredError } from "@/lib/errors";
 import { chargeCreditsForGeneration, InsufficientCreditError } from "@/lib/credit";
 import { CREDIT_COSTS } from "@/lib/credit-costs";
@@ -38,7 +40,10 @@ export async function POST(request: Request) {
 
   try {
     const fullPrompt = style ? `${prompt}. Gaya visual: ${style}.` : prompt;
-    const image = await generateImage({ prompt: fullPrompt, width, height });
+    const buffer = await generateImage({ prompt: fullPrompt, width, height });
+
+    const key = `images/${session.user.id}/${randomUUID()}.png`;
+    const imageUrl = await uploadImageToR2(buffer, key, "image/png");
 
     await ensureDbConnection();
     const result = await chargeCreditsForGeneration({
@@ -46,12 +51,12 @@ export async function POST(request: Request) {
       type: "IMAGE_GENERATION",
       title: prompt.length > 80 ? `${prompt.slice(0, 80)}...` : prompt,
       input: { prompt, style, width, height },
-      content: image,
+      content: imageUrl,
       cost: CREDIT_COSTS.IMAGE_GENERATION,
     });
 
     return NextResponse.json({
-      image,
+      image: imageUrl,
       creditBalance: result.creditBalance,
       generationId: result.generation.id,
     });

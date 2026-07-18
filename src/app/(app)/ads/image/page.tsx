@@ -144,6 +144,17 @@ export default function ImagePage() {
     loadHistory();
   }
 
+  async function downloadImage(url: string, fileName: string) {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(objectUrl);
+  }
+
   async function openView(item: HistoryItem) {
     setViewingId(item.id);
     setViewingDetail(null);
@@ -170,14 +181,14 @@ export default function ImagePage() {
         resultTitle="Hasil Gambar"
         resultActions={
           result ? (
-            <a
-              href={result.image}
-              download={result.fileName}
+            <button
+              type="button"
+              onClick={() => downloadImage(result.image, result.fileName)}
               className={buttonVariants({ variant: "outline", size: "sm" })}
             >
               <Download className="h-3.5 w-3.5" />
               Unduh
-            </a>
+            </button>
           ) : undefined
         }
         result={
@@ -186,7 +197,7 @@ export default function ImagePage() {
               <LoadingResult />
             </div>
           ) : result ? (
-            // eslint-disable-next-line @next/next/no-img-element -- base64 data URI, not an optimizable remote/static asset
+            // eslint-disable-next-line @next/next/no-img-element -- external R2 URL, domain not known at build time for next/image
             <img
               src={result.image}
               alt={prompt}
@@ -351,20 +362,20 @@ export default function ImagePage() {
           <LoadingResult />
         ) : viewingDetail ? (
           <div className="flex flex-col gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element -- base64 data URI, not an optimizable remote/static asset */}
+            {/* eslint-disable-next-line @next/next/no-img-element -- external R2 URL, domain not known at build time for next/image */}
             <img
               src={viewingDetail.content}
               alt={viewingDetail.title}
               className="w-full rounded-lg border border-border object-contain"
             />
-            <a
-              href={viewingDetail.content}
-              download={`gambar-${viewingId}.png`}
+            <button
+              type="button"
+              onClick={() => downloadImage(viewingDetail.content, `gambar-${viewingId}.png`)}
               className={buttonVariants({ variant: "outline", size: "sm", className: "self-end" })}
             >
               <Download className="h-3.5 w-3.5" />
               Unduh
-            </a>
+            </button>
           </div>
         ) : (
           <ErrorNotice message="Gagal memuat gambar." />
