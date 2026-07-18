@@ -47,6 +47,13 @@ async function main() {
       model: "fal-ai/kling-video/v3/standard/image-to-video",
     },
     {
+      name: "fal.ai (Voice Changer)",
+      slug: "falai-lipsync",
+      category: "video",
+      model: "fal-ai/sync-lipsync/v2",
+    },
+    { name: "OpenAI (Text-to-Speech)", slug: "openai-tts", category: "audio", model: "tts-1" },
+    {
       name: "Serper (Data Kompetitor)",
       slug: "serper-search",
       category: "search",

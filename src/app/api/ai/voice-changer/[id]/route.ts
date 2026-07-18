@@ -10,11 +10,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const generation = await prisma.generation.findUnique({ where: { id } });
 
-  if (!generation || generation.userId !== session.user.id || generation.type !== "VIDEO_GENERATION") {
+  if (!generation || generation.userId !== session.user.id || generation.type !== "VOICE_DUB") {
     return NextResponse.json({ error: "Tidak ditemukan." }, { status: 404 });
   }
 
-  const refreshed = await refreshPendingFalGeneration(generation, "videos");
+  const refreshed = await refreshPendingFalGeneration(generation, "voice-dubs");
 
   return NextResponse.json({
     generation: {

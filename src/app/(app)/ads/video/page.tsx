@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Video as VideoIcon, Sparkles, Download, History, Upload, X } from "lucide-react";
+import { Video as VideoIcon, Sparkles, Download, History, Upload, X, Mic } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button, buttonVariants } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
@@ -14,6 +14,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { ToolLayout } from "@/components/ui/ToolLayout";
 import { ImageGenerationLoader } from "@/components/ui/ImageGenerationLoader";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
+import { Tabs } from "@/components/ui/Tabs";
 import { CreditCostBadge } from "@/components/credits/CreditCostBadge";
 import { CREDIT_COSTS } from "@/lib/credit-costs";
 import { usePagination } from "@/lib/use-pagination";
@@ -39,17 +40,41 @@ interface JobDetail {
   createdAt: string;
 }
 
-const DURATIONS: { value: "5" | "10"; label: string }[] = [
-  { value: "5", label: "5 detik" },
-  { value: "10", label: "10 detik" },
-];
-
 const STATUS_BADGE: Record<JobStatus, { label: string; variant: "neutral" | "warning" | "success" | "danger" }> = {
   PENDING: { label: "Menunggu", variant: "neutral" },
   PROCESSING: { label: "Diproses", variant: "warning" },
   COMPLETED: { label: "Selesai", variant: "success" },
   FAILED: { label: "Gagal", variant: "danger" },
 };
+
+function isPending(status: JobStatus) {
+  return status === "PENDING" || status === "PROCESSING";
+}
+
+export default function AdsVideoPage() {
+  const [tab, setTab] = useState("generate");
+
+  return (
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Generator Video"
+        description="Buat video iklan/produk dari gambar produk, objek, atau karakter dengan AI."
+        icon={VideoIcon}
+      />
+
+      <Tabs
+        value={tab}
+        onChange={setTab}
+        items={[
+          { id: "generate", label: "Generator Video", icon: VideoIcon },
+          { id: "voice", label: "Voice Changer", icon: Mic },
+        ]}
+      />
+
+      {tab === "generate" ? <VideoGeneratorTab /> : <VoiceChangerTab />}
+    </div>
+  );
+}
 
 const VIDEO_LOADING_MESSAGES = [
   "Menganalisis gambar sumber...",
@@ -59,13 +84,14 @@ const VIDEO_LOADING_MESSAGES = [
   "Menyelesaikan render akhir...",
 ];
 
-const LAST_JOB_STORAGE_KEY = "marketingai:lastVideoJobId";
+const VIDEO_STORAGE_KEY = "marketingai:lastVideoJobId";
 
-function isPending(status: JobStatus) {
-  return status === "PENDING" || status === "PROCESSING";
-}
+const DURATIONS: { value: "5" | "10"; label: string }[] = [
+  { value: "5", label: "5 detik" },
+  { value: "10", label: "10 detik" },
+];
 
-export default function AdsVideoPage() {
+function VideoGeneratorTab() {
   const { update } = useSession();
   const [prompt, setPrompt] = useState("");
   const [duration, setDuration] = useState<"5" | "10">("5");
@@ -101,7 +127,7 @@ export default function AdsVideoPage() {
   // Resume tracking the last job after a page reload — otherwise a job still
   // running server-side looks "lost" just because in-memory state reset.
   useEffect(() => {
-    const lastId = localStorage.getItem(LAST_JOB_STORAGE_KEY);
+    const lastId = localStorage.getItem(VIDEO_STORAGE_KEY);
     if (!lastId) return;
     fetch(`/api/ai/video/${lastId}`)
       .then((res) => (res.ok ? res.json() : null))
@@ -140,7 +166,7 @@ export default function AdsVideoPage() {
 
   useEffect(() => {
     if (!viewingDetail || !isPending(viewingDetail.status)) return;
-    if (viewingDetail.id === activeJob?.id) return; // already kept fresh by the active-job poller below
+    if (viewingDetail.id === activeJob?.id) return; // already kept fresh by the active-job poller above
     const id = setInterval(async () => {
       const res = await fetch(`/api/ai/video/${viewingDetail.id}`);
       const data = await res.json().catch(() => null);
@@ -197,7 +223,7 @@ export default function AdsVideoPage() {
         setError(data.error ?? "Gagal memulai pembuatan video.");
         return;
       }
-      localStorage.setItem(LAST_JOB_STORAGE_KEY, data.generationId);
+      localStorage.setItem(VIDEO_STORAGE_KEY, data.generationId);
       setActiveJob({
         id: data.generationId,
         title: prompt,
@@ -228,12 +254,6 @@ export default function AdsVideoPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Generator Video"
-        description="Buat video iklan/produk dari gambar produk, objek, atau karakter dengan AI."
-        icon={VideoIcon}
-      />
-
       <ToolLayout
         formTitle="Generator Video"
         formIcon={VideoIcon}
@@ -437,6 +457,383 @@ export default function AdsVideoPage() {
             ) : (
               <div className="flex flex-col gap-2">
                 <ErrorNotice message={displayedDetail.errorMessage ?? "Gagal membuat video."} />
+                <p className="text-xs text-muted">Kredit yang terpakai untuk percobaan ini sudah dikembalikan.</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <ErrorNotice message="Gagal memuat detail." />
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+const VOICE_LOADING_MESSAGES = [
+  "Menyusun suara dari teks...",
+  "Menganalisis gerakan mulut...",
+  "Menyinkronkan audio ke video...",
+  "Menyelesaikan render akhir...",
+];
+
+const VOICE_STORAGE_KEY = "marketingai:lastVoiceDubJobId";
+const MAX_TEXT_LENGTH = 500;
+
+const VOICES = [
+  { value: "alloy", label: "Alloy (netral)" },
+  { value: "nova", label: "Nova (wanita, ceria)" },
+  { value: "shimmer", label: "Shimmer (wanita, lembut)" },
+  { value: "echo", label: "Echo (pria, hangat)" },
+  { value: "onyx", label: "Onyx (pria, dalam)" },
+  { value: "fable", label: "Fable (pria, ekspresif)" },
+];
+
+function VoiceChangerTab() {
+  const { update } = useSession();
+  const [sourceVideos, setSourceVideos] = useState<HistoryItem[] | null>(null);
+  const [sourceGenerationId, setSourceGenerationId] = useState("");
+  const [text, setText] = useState("");
+  const [voice, setVoice] = useState(VOICES[0].value);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [activeJob, setActiveJob] = useState<JobDetail | null>(null);
+
+  const [history, setHistory] = useState<HistoryItem[] | null>(null);
+  const [historyError, setHistoryError] = useState(false);
+  const { page, setPage, pageCount, pageItems: historyPage } = usePagination(history ?? [], 5);
+
+  const [viewingId, setViewingId] = useState<string | null>(null);
+  const [viewingDetail, setViewingDetail] = useState<JobDetail | null>(null);
+  const [viewingLoading, setViewingLoading] = useState(false);
+
+  function loadSourceVideos() {
+    fetch("/api/videos/history")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const completed: HistoryItem[] = (data?.generations ?? []).filter(
+          (g: HistoryItem) => g.status === "COMPLETED"
+        );
+        setSourceVideos(completed);
+      })
+      .catch(() => setSourceVideos([]));
+  }
+
+  function loadHistory() {
+    fetch("/api/voice-changer/history")
+      .then(async (res) => {
+        if (!res.ok) throw new Error("failed");
+        const data = await res.json();
+        setHistory(data.generations ?? []);
+        setHistoryError(false);
+      })
+      .catch(() => {
+        setHistory([]);
+        setHistoryError(true);
+      });
+  }
+
+  useEffect(loadSourceVideos, []);
+  useEffect(loadHistory, []);
+
+  useEffect(() => {
+    const lastId = localStorage.getItem(VOICE_STORAGE_KEY);
+    if (!lastId) return;
+    fetch(`/api/ai/voice-changer/${lastId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.generation) setActiveJob(data.generation);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!history) return;
+    const pending = history.filter((h) => isPending(h.status) && h.id !== activeJob?.id);
+    if (pending.length === 0) return;
+    const id = setInterval(async () => {
+      await Promise.all(pending.map((h) => fetch(`/api/ai/voice-changer/${h.id}`)));
+      loadHistory();
+    }, 6000);
+    return () => clearInterval(id);
+  }, [history, activeJob?.id]);
+
+  useEffect(() => {
+    if (!activeJob || !isPending(activeJob.status)) return;
+    const id = setInterval(async () => {
+      const res = await fetch(`/api/ai/voice-changer/${activeJob.id}`);
+      const data = await res.json().catch(() => null);
+      if (data?.generation) {
+        setActiveJob(data.generation);
+        if (!isPending(data.generation.status)) loadHistory();
+      }
+    }, 4000);
+    return () => clearInterval(id);
+  }, [activeJob]);
+
+  useEffect(() => {
+    if (!viewingDetail || !isPending(viewingDetail.status)) return;
+    if (viewingDetail.id === activeJob?.id) return;
+    const id = setInterval(async () => {
+      const res = await fetch(`/api/ai/voice-changer/${viewingDetail.id}`);
+      const data = await res.json().catch(() => null);
+      if (data?.generation) setViewingDetail(data.generation);
+    }, 4000);
+    return () => clearInterval(id);
+  }, [viewingDetail, activeJob?.id]);
+
+  const displayedDetail = viewingDetail?.id === activeJob?.id ? activeJob : viewingDetail;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (isSubmitting) return;
+    setError(null);
+
+    if (!sourceGenerationId) {
+      setError("Pilih video sumber terlebih dahulu.");
+      return;
+    }
+
+    const balanceRes = await fetch("/api/credits/balance");
+    const balanceData = await balanceRes.json().catch(() => null);
+    if (balanceRes.ok && balanceData && balanceData.creditBalance < CREDIT_COSTS.VOICE_DUB) {
+      setError(`Kredit Anda tidak cukup (butuh ${CREDIT_COSTS.VOICE_DUB}, sisa ${balanceData.creditBalance}).`);
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch("/api/ai/voice-changer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceGenerationId, text, voice }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Gagal memulai voice changer.");
+        return;
+      }
+      localStorage.setItem(VOICE_STORAGE_KEY, data.generationId);
+      setActiveJob({
+        id: data.generationId,
+        title: text,
+        status: data.status,
+        content: null,
+        errorMessage: null,
+        creditCost: CREDIT_COSTS.VOICE_DUB,
+        createdAt: new Date().toISOString(),
+      });
+      await update({ creditBalance: data.creditBalance });
+      loadHistory();
+    } catch {
+      setError("Gagal terhubung ke server. Periksa koneksi Anda dan coba lagi.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function openView(item: HistoryItem) {
+    setViewingId(item.id);
+    setViewingDetail(null);
+    setViewingLoading(true);
+    const res = await fetch(`/api/ai/voice-changer/${item.id}`);
+    const data = await res.json();
+    setViewingLoading(false);
+    if (res.ok) setViewingDetail(data.generation);
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <ToolLayout
+        formTitle="Voice Changer"
+        formIcon={Mic}
+        resultTitle="Hasil Voice Changer"
+        resultActions={
+          activeJob?.status === "COMPLETED" ? (
+            <a
+              href={`/api/voice-changer/download/${activeJob.id}`}
+              download
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Unduh
+            </a>
+          ) : undefined
+        }
+        result={
+          activeJob ? (
+            isPending(activeJob.status) ? (
+              <ImageGenerationLoader messages={VOICE_LOADING_MESSAGES} />
+            ) : activeJob.status === "COMPLETED" && activeJob.content ? (
+              <video controls src={activeJob.content} className="w-full rounded-lg border border-border bg-black" />
+            ) : (
+              <div className="flex flex-col gap-2">
+                <ErrorNotice message={activeJob.errorMessage ?? "Gagal memproses voice changer."} />
+                <p className="text-xs text-muted">Kredit yang terpakai untuk percobaan ini sudah dikembalikan.</p>
+              </div>
+            )
+          ) : (
+            <EmptyState icon={Mic} title="Belum ada hasil" />
+          )
+        }
+        form={
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">Video Sumber</label>
+              <p className="text-xs text-muted">Pilih video yang sudah selesai dibuat di tab Generator Video.</p>
+              {sourceVideos === null ? (
+                <div className="h-10 animate-pulse rounded-lg bg-white/[.06]" />
+              ) : sourceVideos.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted">
+                  Belum ada video selesai. Buat video dulu di tab Generator Video.
+                </p>
+              ) : (
+                <select
+                  value={sourceGenerationId}
+                  onChange={(e) => setSourceGenerationId(e.target.value)}
+                  className="h-10 rounded-lg border border-border bg-surface px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand"
+                >
+                  <option value="">Pilih video...</option>
+                  {sourceVideos.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.title}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <Textarea
+              label="Teks Dialog"
+              placeholder='mis. "Halo, selamat datang di toko kami!"'
+              value={text}
+              onChange={(e) => setText(e.target.value.slice(0, MAX_TEXT_LENGTH))}
+              rows={3}
+              required
+            />
+            <p className="-mt-2 text-right text-xs text-muted">
+              {text.length}/{MAX_TEXT_LENGTH}
+            </p>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">Suara</label>
+              <select
+                value={voice}
+                onChange={(e) => setVoice(e.target.value)}
+                className="h-10 rounded-lg border border-border bg-surface px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand"
+              >
+                {VOICES.map((v) => (
+                  <option key={v.value} value={v.value}>
+                    {v.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted">
+                Suara hanya mendukung Mandarin &amp; Inggris secara native — teks bahasa lain otomatis
+                diterjemahkan ke Inggris sebelum diucapkan.
+              </p>
+            </div>
+            {error && <ErrorNotice message={error} />}
+            <div className="flex items-center justify-between pt-1">
+              <CreditCostBadge cost={CREDIT_COSTS.VOICE_DUB} />
+              <Button type="submit" isLoading={isSubmitting}>
+                <Sparkles className="h-4 w-4" />
+                Ubah Suara
+              </Button>
+            </div>
+          </form>
+        }
+      />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <History className="h-4 w-4 text-brand" />
+            Riwayat Voice Changer
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {!history ? (
+            <div className="flex flex-col gap-2 p-5">
+              <div className="h-3 w-2/3 animate-pulse rounded bg-white/[.06]" />
+              <div className="h-3 w-1/2 animate-pulse rounded bg-white/[.06]" />
+            </div>
+          ) : historyError ? (
+            <div className="p-5">
+              <ErrorNotice message="Gagal memuat riwayat. Coba muat ulang halaman." />
+            </div>
+          ) : history.length === 0 ? (
+            <div className="p-5">
+              <EmptyState icon={History} title="Belum ada riwayat" />
+            </div>
+          ) : (
+            <>
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-border text-xs uppercase text-muted">
+                  <tr>
+                    <th className="px-5 py-3 font-medium">Dialog</th>
+                    <th className="px-5 py-3 font-medium">Status</th>
+                    <th className="px-5 py-3 font-medium">Kredit</th>
+                    <th className="px-5 py-3 font-medium">Tanggal</th>
+                    <th className="px-5 py-3 font-medium" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {historyPage.map((item) => (
+                    <tr key={item.id} className="border-b border-border last:border-0 hover:bg-white/[.02]">
+                      <td className="max-w-xs truncate px-5 py-3 text-foreground">{item.title}</td>
+                      <td className="px-5 py-3">
+                        <Badge variant={STATUS_BADGE[item.status].variant}>{STATUS_BADGE[item.status].label}</Badge>
+                      </td>
+                      <td className="px-5 py-3 text-muted">{item.creditCost}</td>
+                      <td className="px-5 py-3 text-muted">
+                        {new Date(item.createdAt).toLocaleDateString("id-ID", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </td>
+                      <td className="px-5 py-3 text-right">
+                        <button
+                          onClick={() => openView(item)}
+                          className="text-sm font-medium text-brand hover:underline"
+                        >
+                          Lihat
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <Pagination page={page} pageCount={pageCount} onPageChange={setPage} />
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Modal open={viewingId !== null} onClose={() => setViewingId(null)} title={displayedDetail?.title} size="lg">
+        {viewingLoading ? (
+          <div className="flex flex-col gap-3 p-1">
+            {[100, 90, 95, 60].map((w, i) => (
+              <div key={i} className="h-3 animate-pulse rounded bg-white/[.06]" style={{ width: `${w}%` }} />
+            ))}
+          </div>
+        ) : displayedDetail ? (
+          <div className="flex flex-col gap-3">
+            {isPending(displayedDetail.status) ? (
+              <ImageGenerationLoader messages={VOICE_LOADING_MESSAGES} />
+            ) : displayedDetail.status === "COMPLETED" && displayedDetail.content ? (
+              <>
+                <video controls src={displayedDetail.content} className="w-full rounded-lg border border-border bg-black" />
+                <a
+                  href={`/api/voice-changer/download/${displayedDetail.id}`}
+                  download
+                  className={buttonVariants({ variant: "outline", size: "sm", className: "self-end" })}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Unduh
+                </a>
+              </>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <ErrorNotice message={displayedDetail.errorMessage ?? "Gagal memproses voice changer."} />
                 <p className="text-xs text-muted">Kredit yang terpakai untuk percobaan ini sudah dikembalikan.</p>
               </div>
             )}

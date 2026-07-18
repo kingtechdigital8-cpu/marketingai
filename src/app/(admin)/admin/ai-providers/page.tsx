@@ -234,6 +234,7 @@ export default function AdminAiProvidersPage() {
               <option value="text">Teks / SEO</option>
               <option value="image">Gambar</option>
               <option value="video">Video</option>
+              <option value="audio">Audio / Suara</option>
               <option value="search">Data Kompetitor (SERP)</option>
             </select>
           </div>

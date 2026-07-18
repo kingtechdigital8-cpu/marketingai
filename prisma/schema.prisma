@@ -18,6 +18,7 @@ enum GenerationType {
   SEO_ARTICLE
   IMAGE_GENERATION
   VIDEO_GENERATION
+  VOICE_DUB
 }
 
 enum GenerationStatus {
