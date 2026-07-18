@@ -85,7 +85,7 @@ export default function ImagePage() {
   const [customHeight, setCustomHeight] = useState("1024");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ image: string; fileName: string } | null>(null);
+  const [result, setResult] = useState<{ image: string; generationId: string } | null>(null);
 
   const [history, setHistory] = useState<HistoryItem[] | null>(null);
   const [historyError, setHistoryError] = useState(false);
@@ -139,20 +139,9 @@ export default function ImagePage() {
       setError(data.error ?? "Gagal generate.");
       return;
     }
-    setResult({ image: data.image, fileName: `gambar-${data.generationId}.png` });
+    setResult({ image: data.image, generationId: data.generationId });
     await update({ creditBalance: data.creditBalance });
     loadHistory();
-  }
-
-  async function downloadImage(url: string, fileName: string) {
-    const res = await fetch(url);
-    const blob = await res.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = objectUrl;
-    link.download = fileName;
-    link.click();
-    URL.revokeObjectURL(objectUrl);
   }
 
   async function openView(item: HistoryItem) {
@@ -181,14 +170,14 @@ export default function ImagePage() {
         resultTitle="Hasil Gambar"
         resultActions={
           result ? (
-            <button
-              type="button"
-              onClick={() => downloadImage(result.image, result.fileName)}
+            <a
+              href={`/api/images/download/${result.generationId}`}
+              download
               className={buttonVariants({ variant: "outline", size: "sm" })}
             >
               <Download className="h-3.5 w-3.5" />
               Unduh
-            </button>
+            </a>
           ) : undefined
         }
         result={
@@ -368,14 +357,14 @@ export default function ImagePage() {
               alt={viewingDetail.title}
               className="w-full rounded-lg border border-border object-contain"
             />
-            <button
-              type="button"
-              onClick={() => downloadImage(viewingDetail.content, `gambar-${viewingId}.png`)}
+            <a
+              href={`/api/images/download/${viewingId}`}
+              download
               className={buttonVariants({ variant: "outline", size: "sm", className: "self-end" })}
             >
               <Download className="h-3.5 w-3.5" />
               Unduh
-            </button>
+            </a>
           </div>
         ) : (
           <ErrorNotice message="Gagal memuat gambar." />

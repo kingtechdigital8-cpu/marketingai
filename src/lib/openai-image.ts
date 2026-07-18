@@ -1,5 +1,7 @@
 import sharp from "sharp";
+import OpenAI from "openai";
 import { getOpenAiClient } from "@/lib/ai-provider";
+import { ContentPolicyViolationError } from "@/lib/errors";
 
 type BaseImageSize = "1024x1024" | "1024x1536" | "1536x1024";
 
@@ -30,12 +32,22 @@ export async function generateImage({
   const { client, model } = await getOpenAiClient("openai-image");
   const baseSize = closestBaseSize(width, height);
 
-  const response = await client.images.generate({
-    model,
-    prompt,
-    size: baseSize,
-    n: 1,
-  });
+  let response;
+  try {
+    response = await client.images.generate({
+      model,
+      prompt,
+      size: baseSize,
+      n: 1,
+    });
+  } catch (err) {
+    if (err instanceof OpenAI.APIError && err.code === "moderation_blocked") {
+      throw new ContentPolicyViolationError(
+        "Deskripsi gambar melanggar kebijakan konten AI (terdeteksi unsur yang dilarang, mis. konten seksual/kekerasan). Silakan ubah deskripsi Anda."
+      );
+    }
+    throw err;
+  }
 
   const b64 = response.data?.[0]?.b64_json;
   if (!b64) {

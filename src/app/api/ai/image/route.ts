@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/api-auth";
 import { generateImage } from "@/lib/openai-image";
 import { uploadImageToR2 } from "@/lib/r2";
-import { ProviderNotConfiguredError } from "@/lib/errors";
+import { ProviderNotConfiguredError, ContentPolicyViolationError } from "@/lib/errors";
 import { chargeCreditsForGeneration, InsufficientCreditError } from "@/lib/credit";
 import { CREDIT_COSTS } from "@/lib/credit-costs";
 import { ensureDbConnection } from "@/lib/with-db-retry";
@@ -61,6 +61,9 @@ export async function POST(request: Request) {
       generationId: result.generation.id,
     });
   } catch (err) {
+    if (err instanceof ContentPolicyViolationError) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
     if (err instanceof ProviderNotConfiguredError) {
       return NextResponse.json({ error: err.message }, { status: 503 });
     }
