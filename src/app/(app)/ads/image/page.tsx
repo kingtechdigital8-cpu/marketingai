@@ -67,6 +67,7 @@ const SIZE_PRESETS: SizePreset[] = [
 
 const MIN_DIMENSION = 256;
 const MAX_DIMENSION = 2048;
+const MAX_REFERENCE_IMAGES = 4;
 
 const STYLE_PRESETS = [
   "Fotografi Realistis",
@@ -89,8 +90,7 @@ export default function ImagePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ image: string; generationId: string } | null>(null);
-  const [referenceFile, setReferenceFile] = useState<File | null>(null);
-  const [referencePreviewUrl, setReferencePreviewUrl] = useState<string | null>(null);
+  const [referenceItems, setReferenceItems] = useState<{ file: File; previewUrl: string }[]>([]);
 
   const [history, setHistory] = useState<HistoryItem[] | null>(null);
   const [historyError, setHistoryError] = useState(false);
@@ -129,18 +129,22 @@ export default function ImagePage() {
       width > MAX_DIMENSION ||
       height > MAX_DIMENSION);
 
-  function handleReferenceFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0] ?? null;
-    if (referencePreviewUrl) URL.revokeObjectURL(referencePreviewUrl);
-    setReferenceFile(file);
-    setReferencePreviewUrl(file ? URL.createObjectURL(file) : null);
+  function handleReferenceFilesChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    const room = MAX_REFERENCE_IMAGES - referenceItems.length;
+    const accepted = files.slice(0, room);
+    setReferenceItems((current) => [
+      ...current,
+      ...accepted.map((file) => ({ file, previewUrl: URL.createObjectURL(file) })),
+    ]);
     e.target.value = "";
   }
 
-  function clearReferenceFile() {
-    if (referencePreviewUrl) URL.revokeObjectURL(referencePreviewUrl);
-    setReferenceFile(null);
-    setReferencePreviewUrl(null);
+  function removeReferenceItem(index: number) {
+    setReferenceItems((current) => {
+      URL.revokeObjectURL(current[index].previewUrl);
+      return current.filter((_, i) => i !== index);
+    });
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -152,7 +156,7 @@ export default function ImagePage() {
     formData.set("style", style);
     formData.set("width", String(width));
     formData.set("height", String(height));
-    if (referenceFile) formData.set("referenceImage", referenceFile);
+    for (const item of referenceItems) formData.append("referenceImages", item.file);
     const res = await fetch("/api/ai/image", {
       method: "POST",
       body: formData,
@@ -230,36 +234,43 @@ export default function ImagePage() {
             />
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-foreground">Gambar Referensi (opsional)</label>
-              <p className="text-xs text-muted">Unggah gambar yang ingin ditiru gaya/komposisinya atau diedit oleh AI.</p>
-              {referencePreviewUrl ? (
-                <div className="relative w-fit">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- local blob preview URL */}
-                  <img
-                    src={referencePreviewUrl}
-                    alt="Pratinjau gambar referensi"
-                    className="h-28 w-28 rounded-lg border border-border object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={clearReferenceFile}
-                    className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-surface text-muted hover:text-foreground"
-                    aria-label="Hapus gambar referensi"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ) : (
-                <label className="flex h-28 w-28 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-border text-muted hover:border-border-strong hover:text-foreground">
-                  <Upload className="h-5 w-5" />
-                  <span className="text-xs">Unggah</span>
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    onChange={handleReferenceFileChange}
-                    className="hidden"
-                  />
-                </label>
-              )}
+              <p className="text-xs text-muted">
+                Unggah hingga {MAX_REFERENCE_IMAGES} gambar untuk ditiru gaya/komposisinya, diedit, atau
+                digabungkan oleh AI.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {referenceItems.map((item, i) => (
+                  <div key={item.previewUrl} className="relative w-fit">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- local blob preview URL */}
+                    <img
+                      src={item.previewUrl}
+                      alt={`Pratinjau gambar referensi ${i + 1}`}
+                      className="h-28 w-28 rounded-lg border border-border object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeReferenceItem(i)}
+                      className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-surface text-muted hover:text-foreground"
+                      aria-label="Hapus gambar referensi"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+                {referenceItems.length < MAX_REFERENCE_IMAGES && (
+                  <label className="flex h-28 w-28 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-border text-muted hover:border-border-strong hover:text-foreground">
+                    <Upload className="h-5 w-5" />
+                    <span className="text-xs">Unggah</span>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      multiple
+                      onChange={handleReferenceFilesChange}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-foreground">Ukuran / Rasio</label>

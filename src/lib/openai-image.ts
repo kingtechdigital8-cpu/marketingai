@@ -72,24 +72,26 @@ export async function editImage({
   prompt,
   width,
   height,
-  referenceImage,
-  referenceImageType,
+  referenceImages,
 }: {
   prompt: string;
   width: number;
   height: number;
-  referenceImage: Buffer;
-  referenceImageType: string;
+  referenceImages: { buffer: Buffer; type: string }[];
 }): Promise<Buffer> {
   const { client, model } = await getOpenAiClient("openai-image");
   const baseSize = closestBaseSize(width, height);
+
+  const images = await Promise.all(
+    referenceImages.map((ref, i) => toFile(ref.buffer, `reference-${i}.png`, { type: ref.type }))
+  );
 
   let response;
   try {
     response = await client.images.edit({
       model,
       prompt,
-      image: await toFile(referenceImage, "reference.png", { type: referenceImageType }),
+      image: images,
       size: baseSize,
       n: 1,
     });
