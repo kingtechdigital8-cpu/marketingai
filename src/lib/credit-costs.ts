@@ -3,4 +3,5 @@ export const CREDIT_COSTS = {
   SEO_META: 1,
   SEO_ARTICLE: 7,
   IMAGE_GENERATION: 10,
+  VIDEO_GENERATION: 50,
 } as const;

@@ -40,7 +40,12 @@ async function main() {
   const defaultProviders = [
     { name: "OpenAI (Teks & SEO)", slug: "openai-text", category: "text", model: "gpt-4o-mini" },
     { name: "OpenAI (Gambar)", slug: "openai-image", category: "image", model: "gpt-image-1" },
-    { name: "fal.ai (Video)", slug: "falai-video", category: "video", model: "kling-video" },
+    {
+      name: "fal.ai (Video)",
+      slug: "falai-video",
+      category: "video",
+      model: "fal-ai/kling-video/v2.1/standard/image-to-video",
+    },
     {
       name: "Serper (Data Kompetitor)",
       slug: "serper-search",

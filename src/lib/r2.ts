@@ -31,7 +31,7 @@ function getR2Client(accountId: string, accessKeyId: string, secretAccessKey: st
   return client;
 }
 
-export async function uploadImageToR2(buffer: Buffer, key: string, contentType: string): Promise<string> {
+export async function uploadToR2(buffer: Buffer, key: string, contentType: string): Promise<string> {
   const { accountId, accessKeyId, secretAccessKey, bucket, publicUrl } = getR2Config();
   const client = getR2Client(accountId, accessKeyId, secretAccessKey);
 
@@ -45,4 +45,18 @@ export async function uploadImageToR2(buffer: Buffer, key: string, contentType: 
   );
 
   return `${publicUrl.replace(/\/$/, "")}/${key}`;
+}
+
+/**
+ * Fetches a (possibly time-limited) file from an external URL and re-uploads
+ * it to our own R2 bucket, so generated assets don't depend on a third-party
+ * provider's URL staying valid indefinitely.
+ */
+export async function downloadAndUploadToR2(sourceUrl: string, key: string, contentType: string): Promise<string> {
+  const res = await fetch(sourceUrl);
+  if (!res.ok) {
+    throw new Error(`Gagal mengunduh aset dari ${sourceUrl} (${res.status}).`);
+  }
+  const buffer = Buffer.from(await res.arrayBuffer());
+  return uploadToR2(buffer, key, contentType);
 }

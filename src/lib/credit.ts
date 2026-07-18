@@ -47,3 +47,110 @@ export async function chargeCreditsForGeneration({
     })
   );
 }
+
+/**
+ * For long-running async jobs (video): charges credits immediately when the
+ * job is accepted, before the result is known. Pair with completeGeneration()
+ * or refundFailedGeneration() once the job resolves.
+ */
+export async function reserveCreditsForGeneration({
+  userId,
+  type,
+  title,
+  input,
+  cost,
+}: {
+  userId: string;
+  type: GenerationType;
+  title: string;
+  input: Prisma.InputJsonValue;
+  cost: number;
+}) {
+  return withDbRetry(() =>
+    prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+      if (user.creditBalance < cost) {
+        throw new InsufficientCreditError();
+      }
+
+      const generation = await tx.generation.create({
+        data: { userId, type, status: "PENDING", title, input, creditCost: cost },
+      });
+
+      await tx.creditTransaction.create({
+        data: { userId, amount: -cost, type: "USAGE", description: title, generationId: generation.id },
+      });
+
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: { creditBalance: { decrement: cost } },
+      });
+
+      return { generation, creditBalance: updatedUser.creditBalance };
+    })
+  );
+}
+
+export async function completeGeneration({ generationId, content }: { generationId: string; content: string }) {
+  return withDbRetry(() =>
+    prisma.$transaction(async (tx) => {
+      const generation = await tx.generation.findUniqueOrThrow({ where: { id: generationId } });
+      if (generation.status !== "PENDING" && generation.status !== "PROCESSING") return generation;
+
+      return tx.generation.update({
+        where: { id: generationId },
+        data: { status: "COMPLETED", content },
+      });
+    })
+  );
+}
+
+export async function markGenerationProcessing(generationId: string) {
+  return withDbRetry(() =>
+    prisma.generation.updateMany({
+      where: { id: generationId, status: "PENDING" },
+      data: { status: "PROCESSING" },
+    })
+  );
+}
+
+/**
+ * Idempotent: only refunds/marks-failed if the generation hasn't already
+ * been finalized, so a concurrent poll can't double-refund.
+ */
+export async function refundFailedGeneration({
+  generationId,
+  errorMessage,
+}: {
+  generationId: string;
+  errorMessage: string;
+}) {
+  return withDbRetry(() =>
+    prisma.$transaction(async (tx) => {
+      const generation = await tx.generation.findUniqueOrThrow({ where: { id: generationId } });
+      if (generation.status !== "PENDING" && generation.status !== "PROCESSING") return generation;
+
+      await tx.generation.update({
+        where: { id: generationId },
+        data: { status: "FAILED", errorMessage },
+      });
+
+      await tx.creditTransaction.create({
+        data: {
+          userId: generation.userId,
+          amount: generation.creditCost,
+          type: "REFUND",
+          description: `Refund: ${generation.title}`,
+          generationId,
+        },
+      });
+
+      await tx.user.update({
+        where: { id: generation.userId },
+        data: { creditBalance: { increment: generation.creditCost } },
+      });
+
+      return generation;
+    })
+  );
+}

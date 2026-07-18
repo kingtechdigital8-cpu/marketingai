@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/api-auth";
 import { generateImage, editImage } from "@/lib/openai-image";
-import { uploadImageToR2 } from "@/lib/r2";
+import { uploadToR2 } from "@/lib/r2";
 import { ProviderNotConfiguredError, ContentPolicyViolationError } from "@/lib/errors";
 import { chargeCreditsForGeneration, InsufficientCreditError } from "@/lib/credit";
 import { CREDIT_COSTS } from "@/lib/credit-costs";
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
       : await generateImage({ prompt: fullPrompt, width, height });
 
     const key = `images/${session.user.id}/${randomUUID()}.png`;
-    const imageUrl = await uploadImageToR2(buffer, key, "image/png");
+    const imageUrl = await uploadToR2(buffer, key, "image/png");
 
     await ensureDbConnection();
     const result = await chargeCreditsForGeneration({

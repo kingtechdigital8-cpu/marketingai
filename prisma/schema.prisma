@@ -17,9 +17,12 @@ enum GenerationType {
   SEO_META
   SEO_ARTICLE
   IMAGE_GENERATION
+  VIDEO_GENERATION
 }
 
 enum GenerationStatus {
+  PENDING
+  PROCESSING
   COMPLETED
   FAILED
 }
