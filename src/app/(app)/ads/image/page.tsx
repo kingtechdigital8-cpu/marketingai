@@ -15,6 +15,8 @@ import {
   LayoutTemplate,
   Monitor,
   Ruler,
+  Upload,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -86,6 +88,8 @@ export default function ImagePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ image: string; generationId: string } | null>(null);
+  const [referenceFile, setReferenceFile] = useState<File | null>(null);
+  const [referencePreviewUrl, setReferencePreviewUrl] = useState<string | null>(null);
 
   const [history, setHistory] = useState<HistoryItem[] | null>(null);
   const [historyError, setHistoryError] = useState(false);
@@ -124,14 +128,33 @@ export default function ImagePage() {
       width > MAX_DIMENSION ||
       height > MAX_DIMENSION);
 
+  function handleReferenceFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    if (referencePreviewUrl) URL.revokeObjectURL(referencePreviewUrl);
+    setReferenceFile(file);
+    setReferencePreviewUrl(file ? URL.createObjectURL(file) : null);
+    e.target.value = "";
+  }
+
+  function clearReferenceFile() {
+    if (referencePreviewUrl) URL.revokeObjectURL(referencePreviewUrl);
+    setReferenceFile(null);
+    setReferencePreviewUrl(null);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+    const formData = new FormData();
+    formData.set("prompt", prompt);
+    formData.set("style", style);
+    formData.set("width", String(width));
+    formData.set("height", String(height));
+    if (referenceFile) formData.set("referenceImage", referenceFile);
     const res = await fetch("/api/ai/image", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, style, width, height }),
+      body: formData,
     });
     const data = await res.json();
     setIsLoading(false);
@@ -206,6 +229,39 @@ export default function ImagePage() {
               rows={4}
               required
             />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">Gambar Referensi (opsional)</label>
+              <p className="text-xs text-muted">Unggah gambar yang ingin ditiru gaya/komposisinya atau diedit oleh AI.</p>
+              {referencePreviewUrl ? (
+                <div className="relative w-fit">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- local blob preview URL */}
+                  <img
+                    src={referencePreviewUrl}
+                    alt="Pratinjau gambar referensi"
+                    className="h-28 w-28 rounded-lg border border-border object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={clearReferenceFile}
+                    className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-surface text-muted hover:text-foreground"
+                    aria-label="Hapus gambar referensi"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex h-28 w-28 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-border text-muted hover:border-border-strong hover:text-foreground">
+                  <Upload className="h-5 w-5" />
+                  <span className="text-xs">Unggah</span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={handleReferenceFileChange}
+                    className="hidden"
+                  />
+                </label>
+              )}
+            </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-foreground">Ukuran / Rasio</label>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

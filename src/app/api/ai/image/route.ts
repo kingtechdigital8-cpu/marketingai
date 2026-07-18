@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/api-auth";
-import { generateImage } from "@/lib/openai-image";
+import { generateImage, editImage } from "@/lib/openai-image";
 import { uploadImageToR2 } from "@/lib/r2";
 import { ProviderNotConfiguredError, ContentPolicyViolationError } from "@/lib/errors";
 import { chargeCreditsForGeneration, InsufficientCreditError } from "@/lib/credit";
@@ -10,16 +10,25 @@ import { ensureDbConnection } from "@/lib/with-db-retry";
 
 const MIN_DIMENSION = 256;
 const MAX_DIMENSION = 2048;
+const MAX_REFERENCE_IMAGE_BYTES = 10 * 1024 * 1024;
+const ALLOWED_REFERENCE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 
 export async function POST(request: Request) {
   const { session, error } = await requireUser();
   if (error) return error;
 
-  const body = await request.json().catch(() => null);
-  const prompt = typeof body?.prompt === "string" ? body.prompt.trim() : "";
-  const style = typeof body?.style === "string" && body.style.trim() ? body.style.trim() : null;
-  const width = Number(body?.width);
-  const height = Number(body?.height);
+  const form = await request.formData().catch(() => null);
+  if (!form) {
+    return NextResponse.json({ error: "Data permintaan tidak valid." }, { status: 400 });
+  }
+
+  const prompt = typeof form.get("prompt") === "string" ? (form.get("prompt") as string).trim() : "";
+  const styleRaw = form.get("style");
+  const style = typeof styleRaw === "string" && styleRaw.trim() ? styleRaw.trim() : null;
+  const width = Number(form.get("width"));
+  const height = Number(form.get("height"));
+  const referenceFile = form.get("referenceImage");
+  const hasReference = referenceFile instanceof File && referenceFile.size > 0;
 
   if (!prompt) {
     return NextResponse.json({ error: "Deskripsi gambar wajib diisi." }, { status: 400 });
@@ -37,10 +46,30 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+  if (hasReference) {
+    const file = referenceFile as File;
+    if (!ALLOWED_REFERENCE_TYPES.has(file.type)) {
+      return NextResponse.json(
+        { error: "Gambar referensi harus berformat PNG, JPG, atau WEBP." },
+        { status: 400 }
+      );
+    }
+    if (file.size > MAX_REFERENCE_IMAGE_BYTES) {
+      return NextResponse.json({ error: "Ukuran gambar referensi maksimal 10MB." }, { status: 400 });
+    }
+  }
 
   try {
     const fullPrompt = style ? `${prompt}. Gaya visual: ${style}.` : prompt;
-    const buffer = await generateImage({ prompt: fullPrompt, width, height });
+    const buffer = hasReference
+      ? await editImage({
+          prompt: fullPrompt,
+          width,
+          height,
+          referenceImage: Buffer.from(await (referenceFile as File).arrayBuffer()),
+          referenceImageType: (referenceFile as File).type,
+        })
+      : await generateImage({ prompt: fullPrompt, width, height });
 
     const key = `images/${session.user.id}/${randomUUID()}.png`;
     const imageUrl = await uploadImageToR2(buffer, key, "image/png");
@@ -50,7 +79,7 @@ export async function POST(request: Request) {
       userId: session.user.id,
       type: "IMAGE_GENERATION",
       title: prompt.length > 80 ? `${prompt.slice(0, 80)}...` : prompt,
-      input: { prompt, style, width, height },
+      input: { prompt, style, width, height, hasReferenceImage: hasReference },
       content: imageUrl,
       cost: CREDIT_COSTS.IMAGE_GENERATION,
     });
