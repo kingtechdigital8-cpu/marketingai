@@ -6,6 +6,7 @@ import { getProviderCosts, roundCreditCost } from "@/lib/provider-cost";
 // always computed server-side at generation time from the calls actually made.
 const TYPICAL_KEYWORD_IDEAS = 10;
 const TYPICAL_UNIQUENESS_CHECKS = 5;
+const DEFAULT_VIDEO_SECONDS = 5; // matches the video/voice-changer tools' default duration option
 
 export async function GET() {
   const { error } = await requireUser();
@@ -25,7 +26,7 @@ export async function GET() {
     SEO_META: roundCreditCost(costs["openai-text"]),
     SEO_ARTICLE: roundCreditCost(costs["openai-text"] + TYPICAL_UNIQUENESS_CHECKS * costs["serper-search"]),
     IMAGE_GENERATION: roundCreditCost(costs["openai-image"]),
-    VIDEO_GENERATION: roundCreditCost(costs["falai-video"]),
-    VOICE_DUB: roundCreditCost(costs["falai-lipsync"] + costs["openai-tts"]),
+    VIDEO_GENERATION: roundCreditCost(costs["falai-video"] * DEFAULT_VIDEO_SECONDS),
+    VOICE_DUB: roundCreditCost(costs["falai-lipsync"] * DEFAULT_VIDEO_SECONDS + costs["openai-tts"]),
   });
 }

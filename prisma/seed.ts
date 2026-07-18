@@ -37,13 +37,19 @@ async function main() {
     });
   }
 
+  // baseCost values are researched real provider prices converted to credits at
+  // 1 credit = $0.50. falai-video and falai-lipsync are billed per second by their
+  // providers, so their baseCost is per-second (the route multiplies by duration);
+  // all others are a flat per-call estimate. Admin can tune these + markupPercent
+  // from /admin/ai-providers as real usage/pricing data comes in.
   const defaultProviders = [
     {
       name: "OpenAI (Teks & SEO)",
       slug: "openai-text",
       category: "text",
       model: "gpt-4o-mini",
-      baseCost: 1,
+      // $0.15/1M input + $0.60/1M output tokens; ~$0.001/call blended across keywords/meta/article
+      baseCost: 0.002,
       markupPercent: 20,
     },
     {
@@ -51,7 +57,8 @@ async function main() {
       slug: "openai-image",
       category: "image",
       model: "gpt-image-1",
-      baseCost: 10,
+      // ~$0.04/image at medium quality, 1024x1024
+      baseCost: 0.08,
       markupPercent: 20,
     },
     {
@@ -59,7 +66,8 @@ async function main() {
       slug: "falai-video",
       category: "video",
       model: "fal-ai/kling-video/v3/standard/image-to-video",
-      baseCost: 45,
+      // $0.126/second with audio on (per-second — multiplied by chosen duration)
+      baseCost: 0.252,
       markupPercent: 20,
     },
     {
@@ -67,7 +75,8 @@ async function main() {
       slug: "falai-lipsync",
       category: "video",
       model: "fal-ai/sync-lipsync/v2",
-      baseCost: 15,
+      // $3/minute = $0.05/second (per-second — multiplied by source video duration)
+      baseCost: 0.1,
       markupPercent: 20,
     },
     {
@@ -75,7 +84,8 @@ async function main() {
       slug: "openai-tts",
       category: "audio",
       model: "gpt-4o-mini-tts",
-      baseCost: 3,
+      // ~$0.015/minute of audio; ~9s typical dialogue clip
+      baseCost: 0.0045,
       markupPercent: 20,
     },
     {
@@ -84,7 +94,8 @@ async function main() {
       category: "search",
       model: null,
       baseUrl: "https://google.serper.dev",
-      baseCost: 0.3,
+      // $1/1,000 queries at the starter tier
+      baseCost: 0.002,
       markupPercent: 20,
     },
   ];

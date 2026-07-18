@@ -54,7 +54,8 @@ export async function POST(request: Request) {
     const imageUrl = await uploadToR2(buffer, imageKey, referenceImage.type);
 
     const job = await submitVideoJob({ prompt, imageUrl, duration });
-    const cost = roundCreditCost(await getProviderCost("falai-video"));
+    // falai-video's base cost is per second of output (Kling bills that way); multiply by the chosen duration.
+    const cost = roundCreditCost((await getProviderCost("falai-video")) * Number(duration));
 
     await ensureDbConnection();
     const result = await reserveCreditsForGeneration({

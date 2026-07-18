@@ -15,6 +15,9 @@ const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 const ALLOWED_VIDEO_TYPES = new Set(["video/mp4", "video/webm", "video/quicktime"]);
 const ALLOWED_AUDIO_TYPES = new Set(["audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/mp4", "audio/m4a"]);
+// Uploaded videos carry no known duration (no probing library wired up) — assume our
+// own generator's default so lipsync (billed per-second of video) isn't undercharged.
+const ASSUMED_UPLOADED_VIDEO_SECONDS = 5;
 
 export async function POST(request: Request) {
   const { session, error } = await requireUser();
@@ -67,6 +70,7 @@ export async function POST(request: Request) {
   }
 
   let sourceVideoUrl: string;
+  let sourceVideoSeconds = ASSUMED_UPLOADED_VIDEO_SECONDS;
   if (hasUploadedVideo) {
     const file = sourceVideoFile as File;
     const ext = file.type === "video/webm" ? "webm" : file.type === "video/quicktime" ? "mov" : "mp4";
@@ -92,6 +96,8 @@ export async function POST(request: Request) {
       );
     }
     sourceVideoUrl = sourceGeneration.content;
+    const storedDuration = Number((sourceGeneration.input as { duration?: string })?.duration);
+    if (Number.isFinite(storedDuration) && storedDuration > 0) sourceVideoSeconds = storedDuration;
   }
 
   try {
@@ -115,7 +121,8 @@ export async function POST(request: Request) {
         ? `${text.slice(0, 80)}...`
         : text;
 
-    const lipsyncCost = await getProviderCost("falai-lipsync");
+    // falai-lipsync's base cost is per second of source video processed.
+    const lipsyncCost = (await getProviderCost("falai-lipsync")) * sourceVideoSeconds;
     const ttsCost = hasUploadedAudio ? 0 : await getProviderCost("openai-tts");
     const cost = roundCreditCost(lipsyncCost + ttsCost);
 
