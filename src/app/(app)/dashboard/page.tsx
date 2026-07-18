@@ -28,10 +28,10 @@ const quickActions = [
 ];
 
 const recentActivity = [
-  { id: 1, name: "Banner Promo Ramadan.png", type: "Gambar", status: "Selesai", credit: 5 },
-  { id: 2, name: "Video Iklan Produk A.mp4", type: "Iklan Video", status: "Diproses", credit: 30 },
+  { id: 1, name: "Banner Promo Ramadan.png", type: "Gambar", status: "Selesai", credit: 1 },
+  { id: 2, name: "Video Iklan Produk A.mp4", type: "Iklan Video", status: "Diproses", credit: 16 },
   { id: 3, name: "Artikel SEO - Kopi Nusantara", type: "SEO", status: "Selesai", credit: 1 },
-  { id: 4, name: "Logo Toko Baru.png", type: "Logo", status: "Selesai", credit: 5 },
+  { id: 4, name: "Logo Toko Baru.png", type: "Logo", status: "Selesai", credit: 1 },
 ];
 
 const statusVariant: Record<string, "success" | "warning"> = {
@@ -153,7 +153,7 @@ export default function DashboardOverviewPage() {
         }
       >
         <div className="grid grid-cols-2 gap-3">
-          {[100, 250, 500, 1000].map((amount) => (
+          {[1000, 2500, 5000, 10000].map((amount) => (
             <button
               key={amount}
               className="rounded-lg border border-border p-4 text-center transition-colors hover:border-brand hover:bg-brand-soft"

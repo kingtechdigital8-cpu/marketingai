@@ -56,7 +56,7 @@ export default function RegisterPage() {
       <Card className="border-border-strong shadow-[0_0_60px_rgba(16,185,129,0.08)]">
         <CardContent>
           <h1 className="text-lg font-semibold text-foreground">Buat Akun Baru</h1>
-          <p className="mt-1 text-sm text-muted">Dapatkan 20 kredit gratis untuk mencoba semua fitur AI.</p>
+          <p className="mt-1 text-sm text-muted">Dapatkan 200 kredit gratis untuk mencoba semua fitur AI.</p>
 
           <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
             <Input id="name" name="name" label="Nama" placeholder="Nama Anda" required />
