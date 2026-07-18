@@ -52,7 +52,7 @@ async function main() {
       category: "video",
       model: "fal-ai/sync-lipsync/v2",
     },
-    { name: "OpenAI (Text-to-Speech)", slug: "openai-tts", category: "audio", model: "tts-1" },
+    { name: "OpenAI (Text-to-Speech)", slug: "openai-tts", category: "audio", model: "gpt-4o-mini-tts" },
     {
       name: "Serper (Data Kompetitor)",
       slug: "serper-search",

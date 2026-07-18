@@ -25,6 +25,7 @@ export async function generateSpeech({ text, voice }: { text: string; voice: str
     model,
     voice,
     input: text,
+    instructions: "Speak clearly and naturally in the same language as the input text, at a natural pace.",
     response_format: "mp3",
   });
 
