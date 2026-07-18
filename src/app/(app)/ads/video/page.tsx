@@ -59,6 +59,8 @@ const VIDEO_LOADING_MESSAGES = [
   "Menyelesaikan render akhir...",
 ];
 
+const LAST_JOB_STORAGE_KEY = "marketingai:lastVideoJobId";
+
 function isPending(status: JobStatus) {
   return status === "PENDING" || status === "PROCESSING";
 }
@@ -96,16 +98,32 @@ export default function AdsVideoPage() {
 
   useEffect(loadHistory, []);
 
+  // Resume tracking the last job after a page reload — otherwise a job still
+  // running server-side looks "lost" just because in-memory state reset.
+  useEffect(() => {
+    const lastId = localStorage.getItem(LAST_JOB_STORAGE_KEY);
+    if (!lastId) return;
+    fetch(`/api/ai/video/${lastId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.generation) setActiveJob(data.generation);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Skip the active job here — it already has its own dedicated poller below,
+  // polling it from both places at once would double the fal.ai/R2 work on
+  // the very poll that finds it done.
   useEffect(() => {
     if (!history) return;
-    const pending = history.filter((h) => isPending(h.status));
+    const pending = history.filter((h) => isPending(h.status) && h.id !== activeJob?.id);
     if (pending.length === 0) return;
     const id = setInterval(async () => {
       await Promise.all(pending.map((h) => fetch(`/api/ai/video/${h.id}`)));
       loadHistory();
     }, 6000);
     return () => clearInterval(id);
-  }, [history]);
+  }, [history, activeJob?.id]);
 
   useEffect(() => {
     if (!activeJob || !isPending(activeJob.status)) return;
@@ -122,13 +140,18 @@ export default function AdsVideoPage() {
 
   useEffect(() => {
     if (!viewingDetail || !isPending(viewingDetail.status)) return;
+    if (viewingDetail.id === activeJob?.id) return; // already kept fresh by the active-job poller below
     const id = setInterval(async () => {
       const res = await fetch(`/api/ai/video/${viewingDetail.id}`);
       const data = await res.json().catch(() => null);
       if (data?.generation) setViewingDetail(data.generation);
     }, 4000);
     return () => clearInterval(id);
-  }, [viewingDetail]);
+  }, [viewingDetail, activeJob?.id]);
+
+  // If the modal is viewing the same job the active-job poller is already tracking,
+  // show that poller's fresher data instead of the modal's own (possibly stale) fetch.
+  const displayedDetail = viewingDetail?.id === activeJob?.id ? activeJob : viewingDetail;
 
   function handleReferenceFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null;
@@ -174,6 +197,7 @@ export default function AdsVideoPage() {
         setError(data.error ?? "Gagal memulai pembuatan video.");
         return;
       }
+      localStorage.setItem(LAST_JOB_STORAGE_KEY, data.generationId);
       setActiveJob({
         id: data.generationId,
         title: prompt,
@@ -382,22 +406,22 @@ export default function AdsVideoPage() {
         </CardContent>
       </Card>
 
-      <Modal open={viewingId !== null} onClose={() => setViewingId(null)} title={viewingDetail?.title} size="lg">
+      <Modal open={viewingId !== null} onClose={() => setViewingId(null)} title={displayedDetail?.title} size="lg">
         {viewingLoading ? (
           <div className="flex flex-col gap-3 p-1">
             {[100, 90, 95, 60].map((w, i) => (
               <div key={i} className="h-3 animate-pulse rounded bg-white/[.06]" style={{ width: `${w}%` }} />
             ))}
           </div>
-        ) : viewingDetail ? (
+        ) : displayedDetail ? (
           <div className="flex flex-col gap-3">
-            {isPending(viewingDetail.status) ? (
+            {isPending(displayedDetail.status) ? (
               <ImageGenerationLoader messages={VIDEO_LOADING_MESSAGES} />
-            ) : viewingDetail.status === "COMPLETED" && viewingDetail.content ? (
+            ) : displayedDetail.status === "COMPLETED" && displayedDetail.content ? (
               <>
-                <video controls src={viewingDetail.content} className="w-full rounded-lg border border-border bg-black" />
+                <video controls src={displayedDetail.content} className="w-full rounded-lg border border-border bg-black" />
                 <a
-                  href={`/api/videos/download/${viewingDetail.id}`}
+                  href={`/api/videos/download/${displayedDetail.id}`}
                   download
                   className={buttonVariants({ variant: "outline", size: "sm", className: "self-end" })}
                 >
@@ -407,7 +431,7 @@ export default function AdsVideoPage() {
               </>
             ) : (
               <div className="flex flex-col gap-2">
-                <ErrorNotice message={viewingDetail.errorMessage ?? "Gagal membuat video."} />
+                <ErrorNotice message={displayedDetail.errorMessage ?? "Gagal membuat video."} />
                 <p className="text-xs text-muted">Kredit yang terpakai untuk percobaan ini sudah dikembalikan.</p>
               </div>
             )}
