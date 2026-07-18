@@ -375,15 +375,12 @@ export default function AdsVideoPage() {
                     <th className="px-5 py-3 font-medium">Status</th>
                     <th className="px-5 py-3 font-medium">Kredit</th>
                     <th className="px-5 py-3 font-medium">Tanggal</th>
+                    <th className="px-5 py-3 font-medium" />
                   </tr>
                 </thead>
                 <tbody>
                   {historyPage.map((item) => (
-                    <tr
-                      key={item.id}
-                      onClick={() => openView(item)}
-                      className="cursor-pointer border-b border-border last:border-0 hover:bg-white/[.03]"
-                    >
+                    <tr key={item.id} className="border-b border-border last:border-0 hover:bg-white/[.02]">
                       <td className="max-w-xs truncate px-5 py-3 text-foreground">{item.title}</td>
                       <td className="px-5 py-3">
                         <Badge variant={STATUS_BADGE[item.status].variant}>{STATUS_BADGE[item.status].label}</Badge>
@@ -395,6 +392,14 @@ export default function AdsVideoPage() {
                           month: "short",
                           year: "numeric",
                         })}
+                      </td>
+                      <td className="px-5 py-3 text-right">
+                        <button
+                          onClick={() => openView(item)}
+                          className="text-sm font-medium text-brand hover:underline"
+                        >
+                          Lihat
+                        </button>
                       </td>
                     </tr>
                   ))}
