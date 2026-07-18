@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Video as VideoIcon, Sparkles, Download, History, Upload, X, Mic } from "lucide-react";
+import { Video as VideoIcon, Sparkles, Download, History, Upload, X, Mic, Play } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button, buttonVariants } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
@@ -494,8 +494,11 @@ function VoiceChangerTab() {
   const [sourceVideos, setSourceVideos] = useState<HistoryItem[] | null>(null);
   const [sourceGenerationId, setSourceGenerationId] = useState("");
   const [uploadedVideo, setUploadedVideo] = useState<{ file: File; previewUrl: string } | null>(null);
+  const [audioMode, setAudioMode] = useState<"tts" | "upload">("tts");
   const [text, setText] = useState("");
   const [voice, setVoice] = useState(VOICES[0].value);
+  const [uploadedAudio, setUploadedAudio] = useState<File | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeJob, setActiveJob] = useState<JobDetail | null>(null);
@@ -598,6 +601,38 @@ function VoiceChangerTab() {
     setUploadedVideo(null);
   }
 
+  function handleUploadedAudioChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    if (file) setUploadedAudio(file);
+    e.target.value = "";
+  }
+
+  async function handlePreviewVoice() {
+    if (isPreviewLoading) return;
+    setIsPreviewLoading(true);
+    try {
+      const res = await fetch("/api/ai/voice-changer/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ voice }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setError(data?.error ?? "Gagal memutar contoh suara.");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.play();
+      audio.onended = () => URL.revokeObjectURL(url);
+    } catch {
+      setError("Gagal memutar contoh suara.");
+    } finally {
+      setIsPreviewLoading(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (isSubmitting) return;
@@ -609,6 +644,14 @@ function VoiceChangerTab() {
     }
     if (sourceMode === "upload" && !uploadedVideo) {
       setError("Unggah video sumber terlebih dahulu.");
+      return;
+    }
+    if (audioMode === "tts" && !text) {
+      setError("Teks dialog wajib diisi.");
+      return;
+    }
+    if (audioMode === "upload" && !uploadedAudio) {
+      setError("Unggah file audio terlebih dahulu.");
       return;
     }
 
@@ -627,8 +670,12 @@ function VoiceChangerTab() {
       } else if (uploadedVideo) {
         formData.set("sourceVideo", uploadedVideo.file);
       }
-      formData.set("text", text);
-      formData.set("voice", voice);
+      if (audioMode === "upload" && uploadedAudio) {
+        formData.set("audioFile", uploadedAudio);
+      } else {
+        formData.set("text", text);
+        formData.set("voice", voice);
+      }
       const res = await fetch("/api/ai/voice-changer", { method: "POST", body: formData });
       const data = await res.json();
       if (!res.ok) {
@@ -638,7 +685,7 @@ function VoiceChangerTab() {
       localStorage.setItem(VOICE_STORAGE_KEY, data.generationId);
       setActiveJob({
         id: data.generationId,
-        title: text,
+        title: audioMode === "upload" && uploadedAudio ? `Voice Changer: ${uploadedAudio.name}` : text,
         status: data.status,
         content: null,
         errorMessage: null,
@@ -784,35 +831,105 @@ function VoiceChangerTab() {
                 </>
               )}
             </div>
-            <Textarea
-              label="Teks Dialog"
-              placeholder='mis. "Halo, selamat datang di toko kami!"'
-              value={text}
-              onChange={(e) => setText(e.target.value.slice(0, MAX_TEXT_LENGTH))}
-              rows={3}
-              required
-            />
-            <p className="-mt-2 text-right text-xs text-muted">
-              {text.length}/{MAX_TEXT_LENGTH}
-            </p>
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-foreground">Suara</label>
-              <select
-                value={voice}
-                onChange={(e) => setVoice(e.target.value)}
-                className="h-10 rounded-lg border border-border bg-surface px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand"
-              >
-                {VOICES.map((v) => (
-                  <option key={v.value} value={v.value}>
-                    {v.label}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-muted">
-                Suara hanya mendukung Mandarin &amp; Inggris secara native — teks bahasa lain otomatis
-                diterjemahkan ke Inggris sebelum diucapkan.
-              </p>
+              <label className="text-sm font-medium text-foreground">Sumber Audio</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAudioMode("tts")}
+                  className={cn(
+                    "flex h-9 flex-1 items-center justify-center rounded-lg border text-sm font-medium transition-colors",
+                    audioMode === "tts"
+                      ? "border-brand bg-brand-soft text-brand"
+                      : "border-border text-muted hover:border-border-strong hover:text-foreground"
+                  )}
+                >
+                  Teks ke Suara
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAudioMode("upload")}
+                  className={cn(
+                    "flex h-9 flex-1 items-center justify-center rounded-lg border text-sm font-medium transition-colors",
+                    audioMode === "upload"
+                      ? "border-brand bg-brand-soft text-brand"
+                      : "border-border text-muted hover:border-border-strong hover:text-foreground"
+                  )}
+                >
+                  Upload Audio
+                </button>
+              </div>
             </div>
+
+            {audioMode === "tts" ? (
+              <>
+                <Textarea
+                  label="Teks Dialog"
+                  placeholder='mis. "Halo, selamat datang di toko kami!"'
+                  value={text}
+                  onChange={(e) => setText(e.target.value.slice(0, MAX_TEXT_LENGTH))}
+                  rows={3}
+                  required
+                />
+                <p className="-mt-2 text-right text-xs text-muted">
+                  {text.length}/{MAX_TEXT_LENGTH}
+                </p>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-medium text-foreground">Suara</label>
+                  <div className="flex gap-2">
+                    <select
+                      value={voice}
+                      onChange={(e) => setVoice(e.target.value)}
+                      className="h-10 flex-1 rounded-lg border border-border bg-surface px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand"
+                    >
+                      {VOICES.map((v) => (
+                        <option key={v.value} value={v.value}>
+                          {v.label}
+                        </option>
+                      ))}
+                    </select>
+                    <Button type="button" variant="outline" size="md" isLoading={isPreviewLoading} onClick={handlePreviewVoice}>
+                      <Play className="h-4 w-4" />
+                      Coba
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted">
+                    Mendukung Bahasa Indonesia dan berbagai bahasa lain — teks diucapkan langsung sesuai
+                    bahasa yang Anda tulis, tanpa diterjemahkan.
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-foreground">File Audio</label>
+                <p className="text-xs text-muted">Unggah rekaman suara Anda sendiri (MP3/WAV/M4A, maksimal 10MB).</p>
+                {uploadedAudio ? (
+                  <div className="flex items-center gap-3 rounded-lg border border-border p-3">
+                    <Mic className="h-5 w-5 shrink-0 text-brand" />
+                    <span className="flex-1 truncate text-sm text-foreground">{uploadedAudio.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setUploadedAudio(null)}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted hover:bg-white/[.06] hover:text-foreground"
+                      aria-label="Hapus audio"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex h-20 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-border text-muted hover:border-border-strong hover:text-foreground">
+                    <Upload className="h-5 w-5" />
+                    <span className="text-xs">Unggah audio</span>
+                    <input
+                      type="file"
+                      accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/mp4,audio/m4a"
+                      onChange={handleUploadedAudioChange}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
+            )}
             {error && <ErrorNotice message={error} />}
             <div className="flex items-center justify-between pt-1">
               <CreditCostBadge cost={CREDIT_COSTS.VOICE_DUB} />

@@ -12,7 +12,9 @@ import { ensureDbConnection } from "@/lib/with-db-retry";
 
 const MAX_TEXT_LENGTH = 500;
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
+const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 const ALLOWED_VIDEO_TYPES = new Set(["video/mp4", "video/webm", "video/quicktime"]);
+const ALLOWED_AUDIO_TYPES = new Set(["audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/mp4", "audio/m4a"]);
 
 export async function POST(request: Request) {
   const { session, error } = await requireUser();
@@ -26,20 +28,33 @@ export async function POST(request: Request) {
   const sourceGenerationId = typeof form.get("sourceGenerationId") === "string" ? (form.get("sourceGenerationId") as string) : "";
   const sourceVideoFile = form.get("sourceVideo");
   const hasUploadedVideo = sourceVideoFile instanceof File && sourceVideoFile.size > 0;
+
+  const audioFile = form.get("audioFile");
+  const hasUploadedAudio = audioFile instanceof File && audioFile.size > 0;
   const text = typeof form.get("text") === "string" ? (form.get("text") as string).trim() : "";
   const voice = typeof form.get("voice") === "string" ? (form.get("voice") as string) : "";
 
   if (!sourceGenerationId && !hasUploadedVideo) {
     return NextResponse.json({ error: "Pilih video sumber atau unggah video terlebih dahulu." }, { status: 400 });
   }
-  if (!text) {
-    return NextResponse.json({ error: "Teks dialog wajib diisi." }, { status: 400 });
-  }
-  if (text.length > MAX_TEXT_LENGTH) {
-    return NextResponse.json({ error: `Teks dialog maksimal ${MAX_TEXT_LENGTH} karakter.` }, { status: 400 });
-  }
-  if (!isAllowedVoice(voice)) {
-    return NextResponse.json({ error: "Pilihan suara tidak valid." }, { status: 400 });
+  if (!hasUploadedAudio) {
+    if (!text) {
+      return NextResponse.json({ error: "Teks dialog wajib diisi." }, { status: 400 });
+    }
+    if (text.length > MAX_TEXT_LENGTH) {
+      return NextResponse.json({ error: `Teks dialog maksimal ${MAX_TEXT_LENGTH} karakter.` }, { status: 400 });
+    }
+    if (!isAllowedVoice(voice)) {
+      return NextResponse.json({ error: "Pilihan suara tidak valid." }, { status: 400 });
+    }
+  } else {
+    const file = audioFile as File;
+    if (!ALLOWED_AUDIO_TYPES.has(file.type)) {
+      return NextResponse.json({ error: "Audio harus berformat MP3, WAV, atau M4A." }, { status: 400 });
+    }
+    if (file.size > MAX_AUDIO_BYTES) {
+      return NextResponse.json({ error: "Ukuran audio maksimal 10MB." }, { status: 400 });
+    }
   }
   if (hasUploadedVideo) {
     const file = sourceVideoFile as File;
@@ -80,22 +95,37 @@ export async function POST(request: Request) {
   }
 
   try {
-    const audioBuffer = await generateSpeech({ text, voice });
-    const audioKey = `voice-dubs/${session.user.id}/${randomUUID()}.mp3`;
-    const audioUrl = await uploadToR2(audioBuffer, audioKey, "audio/mpeg");
+    let audioUrl: string;
+    if (hasUploadedAudio) {
+      const file = audioFile as File;
+      const ext = file.type === "audio/wav" || file.type === "audio/x-wav" ? "wav" : file.type.includes("mp4") || file.type.includes("m4a") ? "m4a" : "mp3";
+      const key = `voice-dubs/${session.user.id}/${randomUUID()}.${ext}`;
+      audioUrl = await uploadToR2(Buffer.from(await file.arrayBuffer()), key, file.type);
+    } else {
+      const audioBuffer = await generateSpeech({ text, voice });
+      const key = `voice-dubs/${session.user.id}/${randomUUID()}.mp3`;
+      audioUrl = await uploadToR2(audioBuffer, key, "audio/mpeg");
+    }
 
     const job = await submitLipsyncJob({ videoUrl: sourceVideoUrl, audioUrl });
+
+    const title = hasUploadedAudio
+      ? `Voice Changer: ${(audioFile as File).name}`
+      : text.length > 80
+        ? `${text.slice(0, 80)}...`
+        : text;
 
     await ensureDbConnection();
     const result = await reserveCreditsForGeneration({
       userId: session.user.id,
       type: "VOICE_DUB",
-      title: text.length > 80 ? `${text.slice(0, 80)}...` : text,
+      title,
       input: {
         sourceGenerationId: sourceGenerationId || null,
         sourceVideoUrl,
-        text,
-        voice,
+        text: hasUploadedAudio ? null : text,
+        voice: hasUploadedAudio ? null : voice,
+        uploadedAudio: hasUploadedAudio,
         audioUrl,
         falRequestId: job.requestId,
         falStatusUrl: job.statusUrl,
