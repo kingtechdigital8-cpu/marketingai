@@ -29,6 +29,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ToolLayout } from "@/components/ui/ToolLayout";
 import { LoadingResult } from "@/components/ui/LoadingResult";
+import { ImageGenerationLoader } from "@/components/ui/ImageGenerationLoader";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { ToggleChip } from "@/components/ui/ToggleChip";
 import { CreditCostBadge } from "@/components/credits/CreditCostBadge";
@@ -205,9 +206,7 @@ export default function ImagePage() {
         }
         result={
           isLoading ? (
-            <div className="flex aspect-square w-full items-center justify-center rounded-lg border border-border bg-surface-2">
-              <LoadingResult />
-            </div>
+            <ImageGenerationLoader />
           ) : result ? (
             // eslint-disable-next-line @next/next/no-img-element -- external R2 URL, domain not known at build time for next/image
             <img
