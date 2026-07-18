@@ -53,14 +53,14 @@ export async function POST(request: Request) {
     const imageKey = `videos/${session.user.id}/${randomUUID()}-source.${ext}`;
     const imageUrl = await uploadToR2(buffer, imageKey, referenceImage.type);
 
-    const { requestId, model } = await submitVideoJob({ prompt, imageUrl, duration });
+    const { requestId, statusUrl, responseUrl } = await submitVideoJob({ prompt, imageUrl, duration });
 
     await ensureDbConnection();
     const result = await reserveCreditsForGeneration({
       userId: session.user.id,
       type: "VIDEO_GENERATION",
       title: prompt.length > 80 ? `${prompt.slice(0, 80)}...` : prompt,
-      input: { prompt, duration, referenceImageUrl: imageUrl, falRequestId: requestId, falModel: model },
+      input: { prompt, duration, referenceImageUrl: imageUrl, falRequestId: requestId, falStatusUrl: statusUrl, falResponseUrl: responseUrl },
       cost: CREDIT_COSTS.VIDEO_GENERATION,
     });
 

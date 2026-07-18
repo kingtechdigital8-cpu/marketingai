@@ -18,16 +18,16 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   if (generation.status === "PENDING" || generation.status === "PROCESSING") {
-    const input = generation.input as { falRequestId?: string; falModel?: string };
-    if (input?.falRequestId && input?.falModel) {
+    const input = generation.input as { falStatusUrl?: string; falResponseUrl?: string };
+    if (input?.falStatusUrl && input?.falResponseUrl) {
       try {
-        const jobStatus = await checkVideoJobStatus({ model: input.falModel, requestId: input.falRequestId });
+        const jobStatus = await checkVideoJobStatus({ statusUrl: input.falStatusUrl });
 
         if (jobStatus.state === "IN_QUEUE" || jobStatus.state === "IN_PROGRESS") {
           await markGenerationProcessing(id);
           generation = { ...generation, status: "PROCESSING" };
         } else if (jobStatus.state === "COMPLETED") {
-          const { videoUrl } = await getVideoJobResult({ model: input.falModel, requestId: input.falRequestId });
+          const { videoUrl } = await getVideoJobResult({ responseUrl: input.falResponseUrl });
           const key = `videos/${session.user.id}/${randomUUID()}.mp4`;
           const r2Url = await downloadAndUploadToR2(videoUrl, key, "video/mp4");
           generation = await completeGeneration({ generationId: id, content: r2Url });

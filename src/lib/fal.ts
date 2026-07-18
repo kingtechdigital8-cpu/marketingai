@@ -45,7 +45,7 @@ export async function submitVideoJob({
   prompt: string;
   imageUrl: string;
   duration: "5" | "10";
-}): Promise<{ requestId: string; model: string }> {
+}): Promise<{ requestId: string; statusUrl: string; responseUrl: string }> {
   const { apiKey, model } = await getFalProvider();
 
   const res = await fetch(`${QUEUE_BASE}/${model}`, {
@@ -66,11 +66,11 @@ export async function submitVideoJob({
   }
 
   const data = await res.json();
-  if (!data.request_id) {
-    throw new Error("fal.ai tidak mengembalikan request_id.");
+  if (!data.request_id || !data.status_url || !data.response_url) {
+    throw new Error("fal.ai tidak mengembalikan request_id/status_url/response_url.");
   }
 
-  return { requestId: data.request_id as string, model };
+  return { requestId: data.request_id as string, statusUrl: data.status_url as string, responseUrl: data.response_url as string };
 }
 
 export type FalJobStatus =
@@ -79,16 +79,10 @@ export type FalJobStatus =
   | { state: "COMPLETED" }
   | { state: "ERROR"; message: string };
 
-export async function checkVideoJobStatus({
-  model,
-  requestId,
-}: {
-  model: string;
-  requestId: string;
-}): Promise<FalJobStatus> {
+export async function checkVideoJobStatus({ statusUrl }: { statusUrl: string }): Promise<FalJobStatus> {
   const { apiKey } = await getFalProvider();
 
-  const res = await fetch(`${QUEUE_BASE}/${model}/requests/${requestId}/status`, {
+  const res = await fetch(statusUrl, {
     headers: { Authorization: `Key ${apiKey}` },
   });
 
@@ -113,16 +107,10 @@ export async function checkVideoJobStatus({
   return { state: "ERROR", message: `Status tidak dikenal dari fal.ai: ${data.status}` };
 }
 
-export async function getVideoJobResult({
-  model,
-  requestId,
-}: {
-  model: string;
-  requestId: string;
-}): Promise<{ videoUrl: string }> {
+export async function getVideoJobResult({ responseUrl }: { responseUrl: string }): Promise<{ videoUrl: string }> {
   const { apiKey } = await getFalProvider();
 
-  const res = await fetch(`${QUEUE_BASE}/${model}/requests/${requestId}`, {
+  const res = await fetch(responseUrl, {
     headers: { Authorization: `Key ${apiKey}` },
   });
 
