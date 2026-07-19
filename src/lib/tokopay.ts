@@ -55,22 +55,22 @@ export async function createOrder({
 }): Promise<TokopayOrder> {
   const { merchantId, secretKey, channel } = await getTokopayConfig();
 
-  const body = new URLSearchParams({
+  const body = {
     merchant_id: merchantId,
     kode_channel: channel,
     reff_id: refId,
-    amount: String(amountIdr),
+    amount: amountIdr,
     customer_name: customerName,
     customer_email: customerEmail,
     customer_phone: customerPhone,
-    expired_ts: String(Math.floor(Date.now() / 1000) + 30 * 60),
+    expired_ts: Math.floor(Date.now() / 1000) + 30 * 60,
     signature: signTokopay(merchantId, secretKey, refId),
-  });
+  };
 
   const res = await fetch(`${API_BASE}/order`, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
 
   const data = await res.json().catch(() => null);
