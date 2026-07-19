@@ -154,3 +154,37 @@ export async function refundFailedGeneration({
     })
   );
 }
+
+/**
+ * Idempotent: only grants credit if the topup hasn't already been finalized,
+ * since Tokopay retries its webhook up to 3x and this must never double-credit.
+ */
+export async function completeTopup(refId: string) {
+  return withDbRetry(() =>
+    prisma.$transaction(async (tx) => {
+      const topup = await tx.topupTransaction.findUniqueOrThrow({ where: { refId } });
+      if (topup.status !== "PENDING") return topup;
+
+      const updated = await tx.topupTransaction.update({
+        where: { refId },
+        data: { status: "SUCCESS" },
+      });
+
+      await tx.creditTransaction.create({
+        data: {
+          userId: topup.userId,
+          amount: topup.credits,
+          type: "TOPUP",
+          description: `Top up Rp${topup.amountIdr.toLocaleString("id-ID")}`,
+        },
+      });
+
+      await tx.user.update({
+        where: { id: topup.userId },
+        data: { creditBalance: { increment: topup.credits } },
+      });
+
+      return updated;
+    })
+  );
+}

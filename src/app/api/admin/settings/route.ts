@@ -2,7 +2,16 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/api-auth";
 
-const ALLOWED_KEYS = ["site.title", "site.description", "site.contactEmail", "site.maintenanceMode"];
+const ALLOWED_KEYS = [
+  "site.title",
+  "site.description",
+  "site.contactEmail",
+  "site.maintenanceMode",
+  "tokopay.merchant_id",
+  "tokopay.secret_key",
+  "tokopay.channel",
+  "tokopay.enabled",
+];
 
 export async function GET() {
   const { error } = await requireAdmin();

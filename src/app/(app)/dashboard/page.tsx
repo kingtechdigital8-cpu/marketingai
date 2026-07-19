@@ -13,9 +13,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { buttonVariants } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { PageHeader } from "@/components/ui/PageHeader";
 
@@ -41,7 +40,6 @@ const statusVariant: Record<string, "success" | "warning"> = {
 
 export default function DashboardOverviewPage() {
   const { data: session } = useSession();
-  const [topupOpen, setTopupOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
 
   return (
@@ -50,10 +48,10 @@ export default function DashboardOverviewPage() {
         title={`Selamat datang kembali, ${session?.user.name ?? "Pengguna"}`}
         description="Berikut ringkasan aktivitas marketing Anda."
         actions={
-          <Button onClick={() => setTopupOpen(true)}>
+          <Link href="/credits" className={buttonVariants()}>
             <Coins className="h-4 w-4" />
             Beli Kredit
-          </Button>
+          </Link>
         }
       />
 
@@ -138,33 +136,6 @@ export default function DashboardOverviewPage() {
           </table>
         </CardContent>
       </Card>
-
-      <Modal
-        open={topupOpen}
-        onClose={() => setTopupOpen(false)}
-        title="Beli Kredit"
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setTopupOpen(false)}>
-              Batal
-            </Button>
-            <Button onClick={() => setTopupOpen(false)}>Lanjut ke Pembayaran</Button>
-          </>
-        }
-      >
-        <div className="grid grid-cols-2 gap-3">
-          {[1000, 2500, 5000, 10000].map((amount) => (
-            <button
-              key={amount}
-              className="rounded-lg border border-border p-4 text-center transition-colors hover:border-brand hover:bg-brand-soft"
-            >
-              <p className="text-lg font-bold text-foreground">{amount}</p>
-              <p className="text-xs text-muted">kredit</p>
-            </button>
-          ))}
-        </div>
-        <p className="mt-4 text-xs text-muted">Pembayaran diproses aman melalui Tokopay (QRIS &amp; e-wallet).</p>
-      </Modal>
 
       <ConfirmDialog
         open={deleteTarget !== null}
