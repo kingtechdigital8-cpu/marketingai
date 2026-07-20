@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Coins, ExternalLink, RefreshCw, CheckCircle2, History } from "lucide-react";
+import { Coins, RefreshCw, CheckCircle2, History } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Button, buttonVariants } from "@/components/ui/Button";
+import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
@@ -145,6 +145,22 @@ export default function CreditsPage() {
     }
   }
 
+  async function resumeTopup(refId: string) {
+    const res = await fetch(`/api/topup/${refId}`);
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data) return;
+    setActiveTopup({
+      refId: data.refId,
+      payUrl: data.payUrl,
+      qrLink: data.qrLink ?? null,
+      paymentGuide: data.paymentGuide ?? null,
+      amountIdr: data.amountIdr,
+      credits: data.credits,
+      status: data.status,
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -229,7 +245,7 @@ export default function CreditsPage() {
                     </div>
                     {activeTopup.qrLink ? (
                       <div className="flex flex-col items-center gap-2 self-center">
-                        {/* eslint-disable-next-line @next/next/no-img-element -- external Tokopay QR image URL */}
+                        {/* eslint-disable-next-line @next/next/no-img-element -- external payment provider QR image URL */}
                         <img
                           src={activeTopup.qrLink}
                           alt="Kode QRIS pembayaran"
@@ -245,17 +261,11 @@ export default function CreditsPage() {
                       </p>
                     )}
                     {activeTopup.paymentGuide && (
-                      <p className="text-xs text-muted">{activeTopup.paymentGuide}</p>
+                      <div
+                        className="flex flex-col gap-1 text-xs text-muted [&_p]:leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: activeTopup.paymentGuide }}
+                      />
                     )}
-                    <a
-                      href={activeTopup.payUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={buttonVariants({ variant: "outline", size: "sm", className: "self-start" })}
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      Buka Halaman Pembayaran
-                    </a>
                   </>
                 )}
               </div>
@@ -266,7 +276,7 @@ export default function CreditsPage() {
               </Button>
             )}
 
-            <p className="text-xs text-muted">Pembayaran diproses aman melalui Tokopay.</p>
+            <p className="text-xs text-muted">Pembayaran diproses aman &amp; terenkripsi.</p>
           </CardContent>
         </Card>
 
@@ -298,6 +308,7 @@ export default function CreditsPage() {
                     <th className="px-5 py-3 font-medium">Nominal</th>
                     <th className="px-5 py-3 font-medium">Kredit</th>
                     <th className="px-5 py-3 font-medium">Status</th>
+                    <th className="px-5 py-3 font-medium" />
                   </tr>
                 </thead>
                 <tbody>
@@ -307,6 +318,16 @@ export default function CreditsPage() {
                       <td className="px-5 py-3 text-muted">{item.credits.toLocaleString("id-ID")}</td>
                       <td className="px-5 py-3">
                         <Badge variant={STATUS_BADGE[item.status].variant}>{STATUS_BADGE[item.status].label}</Badge>
+                      </td>
+                      <td className="px-5 py-3 text-right">
+                        {item.status === "PENDING" && (
+                          <button
+                            onClick={() => resumeTopup(item.refId)}
+                            className="text-sm font-medium text-brand hover:underline"
+                          >
+                            Lanjutkan
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
