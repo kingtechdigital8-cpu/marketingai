@@ -73,16 +73,28 @@ export async function createOrder({
     body: JSON.stringify(body),
   });
 
-  const data = await res.json().catch(() => null);
-  if (!res.ok || !data || data.status !== "Success" || !data.data) {
-    throw new Error(`Tokopay gagal membuat order: ${data?.error_msg || data?.status || res.status}`);
+  const rawText = await res.text();
+  let data: Record<string, unknown> | null = null;
+  try {
+    data = JSON.parse(rawText);
+  } catch {
+    // not JSON — rawText itself is the diagnostic
   }
 
+  if (!res.ok || !data || data.status !== "Success" || !data.data) {
+    console.error("Tokopay create-order raw response:", res.status, rawText);
+    console.error("Tokopay create-order request body sent:", { ...body, signature: "[redacted]" });
+    throw new Error(
+      `Tokopay gagal membuat order: ${(data?.error_msg as string) || (data?.status as string) || rawText.slice(0, 200) || res.status}`
+    );
+  }
+
+  const orderData = data.data as Record<string, unknown>;
   return {
-    trxId: data.data.trx_id,
-    payUrl: data.data.pay_url,
-    qrString: data.data.qr_string ?? null,
-    totalBayar: data.data.total_bayar,
+    trxId: orderData.trx_id as string,
+    payUrl: orderData.pay_url as string,
+    qrString: (orderData.qr_string as string) ?? null,
+    totalBayar: orderData.total_bayar as number,
   };
 }
 
