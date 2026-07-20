@@ -37,6 +37,8 @@ export interface TokopayOrder {
   trxId: string;
   payUrl: string;
   qrString: string | null;
+  qrLink: string | null;
+  paymentGuide: string | null;
   totalBayar: number;
 }
 
@@ -82,6 +84,8 @@ export async function createOrder({
     trxId: orderData.trx_id as string,
     payUrl: orderData.pay_url as string,
     qrString: (orderData.qr_string as string) ?? null,
+    qrLink: (orderData.qr_link as string) ?? null,
+    paymentGuide: (orderData.panduan_pembayaran as string) || null,
     totalBayar: orderData.total_bayar as number,
   };
 }

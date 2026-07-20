@@ -36,5 +36,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ ref
     credits: topup.credits,
     payUrl: topup.payUrl,
     qrString: topup.qrString,
+    qrLink: topup.qrLink,
+    paymentGuide: topup.paymentGuide,
   });
 }

@@ -46,6 +46,8 @@ export async function POST(request: Request) {
         status: "PENDING",
         payUrl: order.payUrl,
         qrString: order.qrString,
+        qrLink: order.qrLink,
+        paymentGuide: order.paymentGuide,
       },
     });
 
@@ -53,6 +55,8 @@ export async function POST(request: Request) {
       refId: topup.refId,
       payUrl: topup.payUrl,
       qrString: topup.qrString,
+      qrLink: topup.qrLink,
+      paymentGuide: topup.paymentGuide,
       amountIdr: topup.amountIdr,
       credits: topup.credits,
       usdIdrRate,

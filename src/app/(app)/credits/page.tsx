@@ -24,6 +24,8 @@ interface TopupHistoryItem {
 interface ActiveTopup {
   refId: string;
   payUrl: string;
+  qrLink: string | null;
+  paymentGuide: string | null;
   amountIdr: number;
   credits: number;
   status: TopupStatus;
@@ -130,11 +132,12 @@ export default function CreditsPage() {
       setActiveTopup({
         refId: data.refId,
         payUrl: data.payUrl,
+        qrLink: data.qrLink ?? null,
+        paymentGuide: data.paymentGuide ?? null,
         amountIdr: data.amountIdr,
         credits: data.credits,
         status: "PENDING",
       });
-      window.open(data.payUrl, "_blank", "noopener,noreferrer");
     } catch {
       setError("Gagal terhubung ke server. Periksa koneksi Anda dan coba lagi.");
     } finally {
@@ -224,10 +227,26 @@ export default function CreditsPage() {
                       <RefreshCw className="h-4 w-4 animate-spin" />
                       <p className="text-sm font-medium">Menunggu pembayaran...</p>
                     </div>
-                    <p className="text-xs text-muted">
-                      Selesaikan pembayaran di tab yang baru terbuka. Halaman ini otomatis update begitu
-                      pembayaran diterima.
-                    </p>
+                    {activeTopup.qrLink ? (
+                      <div className="flex flex-col items-center gap-2 self-center">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- external Tokopay QR image URL */}
+                        <img
+                          src={activeTopup.qrLink}
+                          alt="Kode QRIS pembayaran"
+                          className="h-56 w-56 rounded-lg border border-border bg-white p-2"
+                        />
+                        <p className="text-xs text-muted">
+                          Scan kode QRIS di atas pakai aplikasi e-wallet atau m-banking Anda.
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted">
+                        Halaman ini otomatis update begitu pembayaran diterima.
+                      </p>
+                    )}
+                    {activeTopup.paymentGuide && (
+                      <p className="text-xs text-muted">{activeTopup.paymentGuide}</p>
+                    )}
                     <a
                       href={activeTopup.payUrl}
                       target="_blank"
