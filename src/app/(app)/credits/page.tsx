@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Coins, RefreshCw, CheckCircle2, History } from "lucide-react";
+import { Coins, RefreshCw, CheckCircle2, History, ExternalLink } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { Button, buttonVariants } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
@@ -254,6 +254,21 @@ export default function CreditsPage() {
                         <p className="text-xs text-muted">
                           Scan kode QRIS di atas pakai aplikasi e-wallet atau m-banking Anda.
                         </p>
+                      </div>
+                    ) : activeTopup.payUrl ? (
+                      <div className="flex flex-col items-start gap-2">
+                        <p className="text-xs text-muted">
+                          Kode QR tidak tersedia untuk transaksi ini. Selesaikan pembayaran lewat tautan berikut.
+                        </p>
+                        <a
+                          href={activeTopup.payUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={buttonVariants({ variant: "outline", size: "sm" })}
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          Buka Halaman Pembayaran
+                        </a>
                       </div>
                     ) : (
                       <p className="text-xs text-muted">
