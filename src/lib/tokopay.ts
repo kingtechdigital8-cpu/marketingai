@@ -43,36 +43,25 @@ export interface TokopayOrder {
 export async function createOrder({
   refId,
   amountIdr,
-  customerName,
-  customerEmail,
-  customerPhone,
 }: {
   refId: string;
   amountIdr: number;
-  customerName: string;
-  customerEmail: string;
-  customerPhone: string;
 }): Promise<TokopayOrder> {
   const { merchantId, secretKey, channel } = await getTokopayConfig();
 
-  const body = {
-    merchant_id: merchantId,
-    kode_channel: channel,
-    reff_id: refId,
-    amount: amountIdr,
-    customer_name: customerName,
-    customer_email: customerEmail,
-    customer_phone: customerPhone,
-    expired_ts: Math.floor(Date.now() / 1000) + 30 * 60,
-    signature: signTokopay(merchantId, secretKey, refId),
-  };
-
-  const res = await fetch(`${API_BASE}/order`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+  // Tokopay's "simple order" endpoint — a plain GET with query params, no JSON
+  // body. The "advanced" JSON-body endpoint kept rejecting well-formed JSON
+  // with a generic "JSON not valid" error regardless of encoding tried, so
+  // this is the reliable path.
+  const params = new URLSearchParams({
+    merchant: merchantId,
+    secret: secretKey,
+    ref_id: refId,
+    nominal: String(amountIdr),
+    metode: channel,
   });
 
+  const res = await fetch(`${API_BASE}/order?${params.toString()}`);
   const rawText = await res.text();
   let data: Record<string, unknown> | null = null;
   try {
@@ -83,7 +72,6 @@ export async function createOrder({
 
   if (!res.ok || !data || data.status !== "Success" || !data.data) {
     console.error("Tokopay create-order raw response:", res.status, rawText);
-    console.error("Tokopay create-order request body sent:", { ...body, signature: "[redacted]" });
     throw new Error(
       `Tokopay gagal membuat order: ${(data?.error_msg as string) || (data?.status as string) || rawText.slice(0, 200) || res.status}`
     );

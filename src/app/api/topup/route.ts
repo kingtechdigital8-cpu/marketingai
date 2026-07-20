@@ -30,13 +30,7 @@ export async function POST(request: Request) {
     }
 
     const refId = `topup-${randomUUID()}`;
-    const order = await createOrder({
-      refId,
-      amountIdr,
-      customerName: session.user.name ?? "Pengguna",
-      customerEmail: session.user.email ?? "user@marketingai.test",
-      customerPhone: "081234567890",
-    });
+    const order = await createOrder({ refId, amountIdr });
 
     const { usdIdrRate } = await getCreditIdrValue();
 
