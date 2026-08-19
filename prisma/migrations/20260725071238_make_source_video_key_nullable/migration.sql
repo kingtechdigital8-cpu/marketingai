@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE `videoclipbatch` MODIFY `sourceVideoKey` VARCHAR(191) NULL;
+ALTER TABLE `VideoClipBatch` MODIFY `sourceVideoKey` VARCHAR(191) NULL;

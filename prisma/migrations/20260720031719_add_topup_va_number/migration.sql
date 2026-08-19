@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE `topuptransaction` ADD COLUMN `vaNumber` TEXT NULL;
+ALTER TABLE `TopupTransaction` ADD COLUMN `vaNumber` TEXT NULL;

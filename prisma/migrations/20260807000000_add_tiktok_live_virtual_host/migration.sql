@@ -1,8 +1,8 @@
 -- AlterTable
-ALTER TABLE `tiktoklivecomment` ADD COLUMN `hostVideoGenerationId` VARCHAR(191) NULL;
+ALTER TABLE `TiktokLiveComment` ADD COLUMN `hostVideoGenerationId` VARCHAR(191) NULL;
 
 -- AlterTable
-ALTER TABLE `tiktokliveconfig` ADD COLUMN `overlayToken` VARCHAR(191) NULL,
+ALTER TABLE `TiktokLiveConfig` ADD COLUMN `overlayToken` VARCHAR(191) NULL,
     ADD COLUMN `virtualHostEnabled` BOOLEAN NOT NULL DEFAULT false,
     ADD COLUMN `virtualHostImageKey` VARCHAR(191) NULL,
     ADD COLUMN `virtualHostVoice` VARCHAR(191) NULL;

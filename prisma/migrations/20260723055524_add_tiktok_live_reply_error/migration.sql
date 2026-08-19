@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE `tiktoklivecomment` ADD COLUMN `replyError` TEXT NULL;
+ALTER TABLE `TiktokLiveComment` ADD COLUMN `replyError` TEXT NULL;

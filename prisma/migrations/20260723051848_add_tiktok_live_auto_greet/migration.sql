@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE `tiktokliveconfig` ADD COLUMN `autoGreetJoins` BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE `TiktokLiveConfig` ADD COLUMN `autoGreetJoins` BOOLEAN NOT NULL DEFAULT false;

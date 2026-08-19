@@ -1,4 +1,4 @@
 
 -- AlterTable
-ALTER TABLE `tiktoklivecomment` ADD COLUMN `avatarClip` VARCHAR(191) NULL;
+ALTER TABLE `TiktokLiveComment` ADD COLUMN `avatarClip` VARCHAR(191) NULL;
 

@@ -3,10 +3,10 @@
 -- (a safe neutral default) rather than "avatar3d" directly, since switching
 -- them straight to avatar3d would leave them with no visual until they
 -- upload a .vrm file.
-UPDATE `tiktokliveconfig` SET `virtualHostMode` = 'video' WHERE `virtualHostMode` = 'viseme';
+UPDATE `TiktokLiveConfig` SET `virtualHostMode` = 'video' WHERE `virtualHostMode` = 'viseme';
 
 -- AlterTable
-ALTER TABLE `tiktokliveconfig` DROP COLUMN `virtualHostMouthStyle`,
+ALTER TABLE `TiktokLiveConfig` DROP COLUMN `virtualHostMouthStyle`,
     DROP COLUMN `virtualHostMouthWidth`,
     DROP COLUMN `virtualHostMouthX`,
     DROP COLUMN `virtualHostMouthY`,

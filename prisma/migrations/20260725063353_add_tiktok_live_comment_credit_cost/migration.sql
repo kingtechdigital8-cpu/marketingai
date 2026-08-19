@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE `tiktoklivecomment` ADD COLUMN `creditCost` INTEGER NULL;
+ALTER TABLE `TiktokLiveComment` ADD COLUMN `creditCost` INTEGER NULL;

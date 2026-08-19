@@ -1,13 +1,13 @@
 -- DropForeignKey
-ALTER TABLE `tiktoklivecomment` DROP FOREIGN KEY `TiktokLiveComment_hostVideoGenerationId_fkey`;
+ALTER TABLE `TiktokLiveComment` DROP FOREIGN KEY `TiktokLiveComment_hostVideoGenerationId_fkey`;
 
 -- DropIndex
-DROP INDEX `TiktokLiveComment_hostVideoGenerationId_fkey` ON `tiktoklivecomment`;
+DROP INDEX `TiktokLiveComment_hostVideoGenerationId_fkey` ON `TiktokLiveComment`;
 
 -- AlterTable
-ALTER TABLE `tiktoklivecomment` DROP COLUMN `hostVideoGenerationId`;
+ALTER TABLE `TiktokLiveComment` DROP COLUMN `hostVideoGenerationId`;
 
 -- AlterTable
-ALTER TABLE `tiktokliveconfig` DROP COLUMN `virtualHostImageKey`,
+ALTER TABLE `TiktokLiveConfig` DROP COLUMN `virtualHostImageKey`,
     DROP COLUMN `virtualHostMode`,
     DROP COLUMN `virtualHostVoice`;

@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE `tiktokliveconfig` ADD COLUMN `aiContext` TEXT NULL;
+ALTER TABLE `TiktokLiveConfig` ADD COLUMN `aiContext` TEXT NULL;

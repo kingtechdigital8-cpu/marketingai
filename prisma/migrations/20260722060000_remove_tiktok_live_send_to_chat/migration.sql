@@ -1,6 +1,6 @@
 -- AlterTable
-ALTER TABLE `tiktokliveconfig` DROP COLUMN `autoSend`;
+ALTER TABLE `TiktokLiveConfig` DROP COLUMN `autoSend`;
 
 -- AlterTable
-ALTER TABLE `tiktoklivecomment` DROP COLUMN `sentToChat`,
+ALTER TABLE `TiktokLiveComment` DROP COLUMN `sentToChat`,
     MODIFY `replyStatus` ENUM('NONE', 'GENERATING', 'GENERATED', 'FAILED') NOT NULL DEFAULT 'NONE';

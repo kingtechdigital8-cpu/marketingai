@@ -1,5 +1,5 @@
 -- AlterTable
-ALTER TABLE `videoclipbatch` ADD COLUMN `autoTransitions` BOOLEAN NOT NULL DEFAULT false,
+ALTER TABLE `VideoClipBatch` ADD COLUMN `autoTransitions` BOOLEAN NOT NULL DEFAULT false,
     ADD COLUMN `fitMode` VARCHAR(191) NOT NULL DEFAULT 'fill',
     ADD COLUMN `introKey` VARCHAR(191) NULL,
     ADD COLUMN `musicKey` VARCHAR(191) NULL,

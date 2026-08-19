@@ -1,17 +1,17 @@
 -- DropForeignKey
-ALTER TABLE `avataranimation` DROP FOREIGN KEY `AvatarAnimation_userId_fkey`;
+ALTER TABLE `AvatarAnimation` DROP FOREIGN KEY `AvatarAnimation_userId_fkey`;
 
 -- DropIndex
-DROP INDEX `AvatarAnimation_userId_createdAt_idx` ON `avataranimation`;
+DROP INDEX `AvatarAnimation_userId_createdAt_idx` ON `AvatarAnimation`;
 
 -- DropIndex
-DROP INDEX `AvatarAnimation_userId_slug_key` ON `avataranimation`;
+DROP INDEX `AvatarAnimation_userId_slug_key` ON `AvatarAnimation`;
 
 -- AlterTable
-ALTER TABLE `avataranimation` MODIFY `userId` VARCHAR(191) NULL;
+ALTER TABLE `AvatarAnimation` MODIFY `userId` VARCHAR(191) NULL;
 
 -- AlterTable
-ALTER TABLE `tiktoklivecomment` ADD COLUMN `customAnimationId` VARCHAR(191) NULL;
+ALTER TABLE `TiktokLiveComment` ADD COLUMN `customAnimationId` VARCHAR(191) NULL;
 
 -- CreateIndex
 CREATE UNIQUE INDEX `AvatarAnimation_slug_key` ON `AvatarAnimation`(`slug`);

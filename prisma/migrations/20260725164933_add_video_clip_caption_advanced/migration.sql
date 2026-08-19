@@ -1,5 +1,5 @@
 -- AlterTable
-ALTER TABLE `videoclipbatch` ADD COLUMN `subtitleHighlightColor` VARCHAR(191) NOT NULL DEFAULT '10B981',
+ALTER TABLE `VideoClipBatch` ADD COLUMN `subtitleHighlightColor` VARCHAR(191) NOT NULL DEFAULT '10B981',
     ADD COLUMN `subtitleLineMode` VARCHAR(191) NOT NULL DEFAULT 'multi',
     ADD COLUMN `subtitlePosition` VARCHAR(191) NOT NULL DEFAULT 'auto',
     ADD COLUMN `subtitlePositionX` INTEGER NOT NULL DEFAULT 50,

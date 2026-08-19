@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE `tiktokliveconfig` DROP COLUMN `ttsProvider`;
+ALTER TABLE `TiktokLiveConfig` DROP COLUMN `ttsProvider`;
