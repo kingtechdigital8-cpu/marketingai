@@ -97,6 +97,21 @@ export interface CutClipOptions {
   subtitleStyle?: TextStyle;
 }
 
+// drawtext's text_align option only exists on newer ffmpeg builds — the
+// system ffmpeg some hosts fall back to (see FFMPEG_PATH above) can be old
+// enough to lack it, which fails the whole filtergraph with "Option
+// 'text_align' not found" rather than just ignoring the option. Probed once
+// per process and cached, since FFMPEG_BIN doesn't change at runtime.
+let textAlignSupported: Promise<boolean> | undefined;
+function supportsTextAlign(): Promise<boolean> {
+  if (!textAlignSupported) {
+    textAlignSupported = execFileAsync(FFMPEG_BIN, ["-hide_banner", "-h", "filter=drawtext"])
+      .then(({ stdout, stderr }) => /\btext_align\b/.test(stdout + stderr))
+      .catch(() => false);
+  }
+  return textAlignSupported;
+}
+
 /** Reads duration + dimensions in one call — used both for billing and for building the filter graph. */
 export async function probeMetadata(filePath: string): Promise<VideoMetadata> {
   const { stdout } = await execFileAsync(FFPROBE_BIN, [
@@ -713,9 +728,10 @@ export async function cutClip(options: CutClipOptions): Promise<void> {
     // inside that block regardless of the chosen Perataan, since drawtext's
     // default text_align is left.
     const textAlign = headlineStyle?.align === "left" ? "left" : headlineStyle?.align === "right" ? "right" : "center";
+    const textAlignParam = (await supportsTextAlign()) ? `:text_align=${textAlign}` : "";
     const baseDrawtextParams =
       `fontfile='${toFilterPath(fontPath)}':fontcolor=${textColor}:` +
-      `line_spacing=6:borderw=2:bordercolor=black@0.5:text_align=${textAlign}${boxParams}`;
+      `line_spacing=6:borderw=2:bordercolor=black@0.5${textAlignParam}${boxParams}`;
     const { xExpr, yExpr: baseYExpr } = computeHeadlineBasePosition(
       headlineStyle?.position,
       headlineStyle?.positionX ?? 50,
