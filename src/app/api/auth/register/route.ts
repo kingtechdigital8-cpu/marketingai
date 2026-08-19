@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
 // 1 credit = $0.05 — this keeps the welcome bonus at the same $10 value as before.
-const WELCOME_CREDIT_BONUS = 200;
+const WELCOME_CREDIT_BONUS = 10;
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
