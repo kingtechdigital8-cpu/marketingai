@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const DEFAULT_MESSAGES = [
   "Menyusun komposisi...",
@@ -11,7 +12,14 @@ const DEFAULT_MESSAGES = [
   "Menyempurnakan pencahayaan...",
 ];
 
-export function ImageGenerationLoader({ messages = DEFAULT_MESSAGES }: { messages?: string[] }) {
+export function ImageGenerationLoader({
+  messages = DEFAULT_MESSAGES,
+  compact = false,
+}: {
+  messages?: string[];
+  /** Half-height (2:1 instead of 1:1) — for status-only loaders (e.g. Auto Clip's analysis step) that aren't previewing where a square/video result will land. */
+  compact?: boolean;
+}) {
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
@@ -20,7 +28,12 @@ export function ImageGenerationLoader({ messages = DEFAULT_MESSAGES }: { message
   }, [messages.length]);
 
   return (
-    <div className="relative flex aspect-square w-full flex-col items-center justify-center gap-4 overflow-hidden rounded-lg border border-border bg-surface-2">
+    <div
+      className={cn(
+        "relative flex w-full flex-col items-center justify-center gap-4 overflow-hidden rounded-lg border border-border bg-surface-2",
+        compact ? "aspect-[2/1]" : "aspect-square"
+      )}
+    >
       <motion.div
         className="pointer-events-none absolute inset-0"
         style={{

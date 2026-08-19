@@ -2117,7 +2117,7 @@ export default function AutoClipPage() {
             <EmptyState icon={Scissors} title="Belum ada video dianalisis" />
           ) : isBatchAnalyzing(batch.status) ? (
             <div className="flex flex-col gap-3">
-              <ImageGenerationLoader messages={ANALYSIS_LOADING_MESSAGES} />
+              <ImageGenerationLoader messages={ANALYSIS_LOADING_MESSAGES} compact />
               <p className="text-center text-xs text-muted">{BATCH_STATUS_LABEL[batch.status]}</p>
             </div>
           ) : batch.status === "FAILED" ? (
