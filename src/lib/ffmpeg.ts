@@ -240,6 +240,38 @@ function wrapText(text: string, maxCharsPerLine: number, maxLines: number): stri
   return lines.join("\n");
 }
 
+// sendcmd only ever SETS a value at a given time, it doesn't tween between
+// commands — feeding it the raw ~1.5s-apart detection keyframes directly
+// made the crop visibly jump every interval instead of panning. Inserting
+// eased sub-steps between each real keyframe turns those jumps into a smooth
+// pan without touching how the keyframes themselves are detected.
+const CROP_INTERPOLATION_STEP_SECONDS = 0.15;
+
+function interpolateCropKeyframes(
+  keyframes: { time: number; x: number; y: number }[]
+): { time: number; x: number; y: number }[] {
+  if (keyframes.length <= 1) return keyframes;
+  const out: { time: number; x: number; y: number }[] = [];
+  for (let i = 0; i < keyframes.length - 1; i++) {
+    const a = keyframes[i];
+    const b = keyframes[i + 1];
+    const span = b.time - a.time;
+    if (span <= 0) continue;
+    const steps = Math.max(1, Math.round(span / CROP_INTERPOLATION_STEP_SECONDS));
+    for (let s = 0; s < steps; s++) {
+      const ratio = s / steps;
+      const eased = ratio * ratio * (3 - 2 * ratio); // smoothstep: eases in/out instead of constant-speed panning
+      out.push({
+        time: a.time + span * ratio,
+        x: Math.round(a.x + (b.x - a.x) * eased),
+        y: Math.round(a.y + (b.y - a.y) * eased),
+      });
+    }
+  }
+  out.push(keyframes[keyframes.length - 1]);
+  return out;
+}
+
 /** ffmpeg sendcmd script: one `TIME crop@smartcrop x N, crop@smartcrop y N;` line per keyframe, driving the named crop filter's position over time. */
 function buildSendcmdScript(keyframes: { time: number; x: number; y: number }[]): string {
   return keyframes
@@ -620,7 +652,7 @@ export async function cutClip(options: CutClipOptions): Promise<void> {
     // for the script to address it. Falls through to the static centered
     // crop below whenever no keyframes were found (e.g. no face detected).
     const cmdPath = path.join(path.dirname(output), `${randomUUID()}.cmds`);
-    await writeFile(cmdPath, buildSendcmdScript(options.cropKeyframes), "utf-8");
+    await writeFile(cmdPath, buildSendcmdScript(interpolateCropKeyframes(options.cropKeyframes)), "utf-8");
     tempFiles.push(cmdPath);
     const first = options.cropKeyframes[0];
     filters.push(
