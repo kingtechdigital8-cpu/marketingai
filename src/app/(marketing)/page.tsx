@@ -26,12 +26,6 @@ import { getShowcaseMedia } from "@/lib/marketing-showcase-media";
 import { OG_IMAGE, SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
-// Refetches the admin's latest generation examples (see
-// marketing-showcase-media.ts) at most every 5 minutes instead of on every
-// request — this is decorative example content, not data that needs to be
-// live-fresh, and it saves a DB round trip per homepage view.
-export const revalidate = 300;
-
 export const metadata: Metadata = {
   // No top-level `title` here deliberately — SITE_TITLE already includes
   // "MarketingAI", and the root layout's title.template ("%s | MarketingAI")
