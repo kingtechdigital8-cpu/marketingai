@@ -26,6 +26,7 @@ import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { CopyButton } from "@/components/ui/CopyButton";
 import { ToggleChip } from "@/components/ui/ToggleChip";
 import { HistoryTable, type HistoryStatus } from "@/components/history/HistoryTable";
+import { useCreditReminder } from "@/components/layout/CreditReminderProvider";
 import { useCreditCosts } from "@/lib/use-credit-costs";
 import { COUNTRIES } from "@/lib/countries";
 import { LANGUAGES } from "@/lib/languages";
@@ -377,6 +378,7 @@ export default function SeoPage() {
 
 function KeywordsTool({ onDone, onSaved }: { onDone: (balance: number) => void; onSaved: () => void }) {
   const creditCosts = useCreditCosts();
+  const triggerCreditReminder = useCreditReminder();
   const [topic, setTopic] = useState("");
   const [businessDescription, setBusinessDescription] = useState("");
   const [country, setCountry] = useState("id");
@@ -393,6 +395,7 @@ function KeywordsTool({ onDone, onSaved }: { onDone: (balance: number) => void; 
     const balanceData = await balanceRes.json().catch(() => null);
     if (balanceRes.ok && balanceData && balanceData.creditBalance < creditCosts.SEO_KEYWORDS) {
       setError(`Kredit Anda tidak cukup (butuh ${creditCosts.SEO_KEYWORDS}, sisa ${balanceData.creditBalance}).`);
+      if (balanceData.creditBalance <= 0) triggerCreditReminder();
       return;
     }
 
@@ -475,6 +478,7 @@ function KeywordsTool({ onDone, onSaved }: { onDone: (balance: number) => void; 
 
 function MetaTool({ onDone, onSaved }: { onDone: (balance: number) => void; onSaved: () => void }) {
   const creditCosts = useCreditCosts();
+  const triggerCreditReminder = useCreditReminder();
   const [topic, setTopic] = useState("");
   const [targetKeyword, setTargetKeyword] = useState("");
   const [language, setLanguage] = useState("id");
@@ -490,6 +494,7 @@ function MetaTool({ onDone, onSaved }: { onDone: (balance: number) => void; onSa
     const balanceData = await balanceRes.json().catch(() => null);
     if (balanceRes.ok && balanceData && balanceData.creditBalance < creditCosts.SEO_META) {
       setError(`Kredit Anda tidak cukup (butuh ${creditCosts.SEO_META}, sisa ${balanceData.creditBalance}).`);
+      if (balanceData.creditBalance <= 0) triggerCreditReminder();
       return;
     }
 
@@ -560,6 +565,7 @@ function MetaTool({ onDone, onSaved }: { onDone: (balance: number) => void; onSa
 
 function ArticleTool({ onDone, onSaved }: { onDone: (balance: number) => void; onSaved: () => void }) {
   const creditCosts = useCreditCosts();
+  const triggerCreditReminder = useCreditReminder();
   const [topic, setTopic] = useState("");
   const [targetKeyword, setTargetKeyword] = useState("");
   const [tone, setTone] = useState("");
@@ -577,6 +583,7 @@ function ArticleTool({ onDone, onSaved }: { onDone: (balance: number) => void; o
     const balanceData = await balanceRes.json().catch(() => null);
     if (balanceRes.ok && balanceData && balanceData.creditBalance < creditCosts.SEO_ARTICLE) {
       setError(`Kredit Anda tidak cukup (butuh ${creditCosts.SEO_ARTICLE}, sisa ${balanceData.creditBalance}).`);
+      if (balanceData.creditBalance <= 0) triggerCreditReminder();
       return;
     }
 

@@ -29,6 +29,7 @@ import { ImageGenerationLoader } from "@/components/ui/ImageGenerationLoader";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { ToggleChip } from "@/components/ui/ToggleChip";
 import { HistoryTable, type HistoryStatus } from "@/components/history/HistoryTable";
+import { useCreditReminder } from "@/components/layout/CreditReminderProvider";
 import { useCreditCosts } from "@/lib/use-credit-costs";
 import { usePagination } from "@/lib/use-pagination";
 import { toggleListValue } from "@/lib/toggle-list";
@@ -79,6 +80,7 @@ const STYLE_PRESETS = [
 
 export default function ImagePage() {
   const { update } = useSession();
+  const triggerCreditReminder = useCreditReminder();
   const creditCosts = useCreditCosts();
   const [prompt, setPrompt] = useState("");
   const [style, setStyle] = useState("");
@@ -156,6 +158,7 @@ export default function ImagePage() {
       setError(
         `Kredit Anda tidak cukup (butuh ${creditCosts.IMAGE_GENERATION}, sisa ${balanceData.creditBalance}).`
       );
+      if (balanceData.creditBalance <= 0) triggerCreditReminder();
       return;
     }
 

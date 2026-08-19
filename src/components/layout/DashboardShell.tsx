@@ -21,6 +21,7 @@ import { Sidebar, type SidebarNavGroup, type SidebarNavItem } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { UserMenu, type UserMenuItem } from "./UserMenu";
 import { PageTransition } from "./PageTransition";
+import { CreditReminderProvider } from "./CreditReminderProvider";
 import { buttonVariants } from "@/components/ui/Button";
 import { useLiveCreditBalance } from "@/lib/use-credit-balance";
 
@@ -105,7 +106,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                 </div>
               </div>
             )}
-            <PageTransition>{children}</PageTransition>
+            <CreditReminderProvider>
+              <PageTransition>{children}</PageTransition>
+            </CreditReminderProvider>
           </div>
         </main>
       </div>

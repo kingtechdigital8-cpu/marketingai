@@ -43,6 +43,7 @@ import { AssetPicker } from "@/components/ui/AssetPicker";
 import { Tabs } from "@/components/ui/Tabs";
 import { Modal } from "@/components/ui/Modal";
 import { HistoryTable, type HistoryStatus } from "@/components/history/HistoryTable";
+import { useCreditReminder } from "@/components/layout/CreditReminderProvider";
 import { useCreditCosts } from "@/lib/use-credit-costs";
 import { usePagination } from "@/lib/use-pagination";
 import { cn } from "@/lib/utils";
@@ -975,6 +976,7 @@ const SECTIONS: { id: SectionId; label: string; icon: typeof Crop }[] = [
 export default function AutoClipPage() {
   const { update } = useSession();
   const costs = useCreditCosts();
+  const triggerCreditReminder = useCreditReminder();
 
   const [sourceMode, setSourceMode] = useState<"upload" | "youtube">("youtube");
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -1395,6 +1397,7 @@ export default function AutoClipPage() {
       setSubmitError(
         `Kredit Anda tidak cukup (butuh ~${costs.VIDEO_CLIP_ANALYSIS}, sisa ${balanceData.creditBalance}).`
       );
+      if (balanceData.creditBalance <= 0) triggerCreditReminder();
       return;
     }
 
@@ -1495,6 +1498,7 @@ export default function AutoClipPage() {
     const balanceData = await balanceRes.json().catch(() => null);
     if (balanceRes.ok && balanceData && balanceData.creditBalance < selectedCost) {
       setConfirmError(`Kredit Anda tidak cukup (butuh ~${selectedCost}, sisa ${balanceData.creditBalance}).`);
+      if (balanceData.creditBalance <= 0) triggerCreditReminder();
       return;
     }
 

@@ -13,6 +13,7 @@ import { ImageGenerationLoader } from "@/components/ui/ImageGenerationLoader";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { Tabs } from "@/components/ui/Tabs";
 import { HistoryTable } from "@/components/history/HistoryTable";
+import { useCreditReminder } from "@/components/layout/CreditReminderProvider";
 import { useCreditCosts } from "@/lib/use-credit-costs";
 import { usePagination } from "@/lib/use-pagination";
 import { cn } from "@/lib/utils";
@@ -85,6 +86,7 @@ const DURATIONS: { value: "5" | "10"; label: string }[] = [
 function VideoGeneratorTab() {
   const { update } = useSession();
   const creditCosts = useCreditCosts();
+  const triggerCreditReminder = useCreditReminder();
   const [prompt, setPrompt] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
   const [duration, setDuration] = useState<"5" | "10">("5");
@@ -201,6 +203,7 @@ function VideoGeneratorTab() {
       setError(
         `Kredit Anda tidak cukup (butuh ${creditCosts.VIDEO_GENERATION}, sisa ${balanceData.creditBalance}).`
       );
+      if (balanceData.creditBalance <= 0) triggerCreditReminder();
       return;
     }
 
@@ -431,6 +434,7 @@ const VOICES = TTS_VOICES;
 function VoiceChangerTab() {
   const { update } = useSession();
   const creditCosts = useCreditCosts();
+  const triggerCreditReminder = useCreditReminder();
   const [sourceMode, setSourceMode] = useState<"history" | "upload">("history");
   const [sourceVideos, setSourceVideos] = useState<HistoryItem[] | null>(null);
   const [sourceGenerationId, setSourceGenerationId] = useState("");
@@ -600,6 +604,7 @@ function VoiceChangerTab() {
     const balanceData = await balanceRes.json().catch(() => null);
     if (balanceRes.ok && balanceData && balanceData.creditBalance < creditCosts.VOICE_DUB) {
       setError(`Kredit Anda tidak cukup (butuh ${creditCosts.VOICE_DUB}, sisa ${balanceData.creditBalance}).`);
+      if (balanceData.creditBalance <= 0) triggerCreditReminder();
       return;
     }
 
