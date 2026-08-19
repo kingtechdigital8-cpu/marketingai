@@ -18,7 +18,7 @@ export interface ShowcaseMedia {
 const SHOWCASE_MEDIA: ShowcaseMedia = {
   image: "https://cdn.kreasi.site/images/cmr6fe2830000nqo4grfoyi67/b872bd9f-f24d-46e4-96a2-172bab79f09a.png",
   video: "https://cdn.kreasi.site/videos/cmr6fe2830000nqo4grfoyi67/b076b3fc-03df-44a9-8a17-785b70ad2cac.mp4",
-  clip: "https://cdn.kreasi.site/video-clips/cmr6fe2830000nqo4grfoyi67/cmszuro5t0001nqyw09f5s4ah/cmszuw2iw000hnqywrjahn4cc.mp4",
+  clip: "https://cdn.kreasi.site/video-clips/cmr6fe2830000nqo4grfoyi67/cmsbh4vif0007nq3omfsw39dp/cmsbh9ghe000nnq3opg76d2qh.mp4",
 };
 
 export async function getShowcaseMedia(): Promise<ShowcaseMedia> {
