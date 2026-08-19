@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { type LucideIcon, ChevronsLeft, Plus, Sparkles, X, Zap } from "lucide-react";
+import { type LucideIcon, ChevronLeft, ChevronsLeft, Plus, Sparkles, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface SidebarNavItem {
@@ -80,12 +80,20 @@ export function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
 
-  // Reading persisted UI state on mount (not deriving from props/state) is
-  // the standard exception to this lint rule elsewhere in the codebase.
+  // Reading persisted UI state / the current viewport on mount (not deriving
+  // from props/state) is the standard exception to this lint rule elsewhere
+  // in the codebase.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
+
+    const query = window.matchMedia("(min-width: 1024px)"); // Tailwind's lg breakpoint
+    setIsDesktop(query.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -96,6 +104,12 @@ export function Sidebar({
       return next;
     });
   }
+
+  // "Collapsed" (icon-only) is a desktop preference — on mobile the sidebar
+  // is an off-canvas drawer that should always show full labels, regardless
+  // of whatever the desktop toggle was last set to (it's read from
+  // localStorage on mount, independent of viewport).
+  const effectiveCollapsed = collapsed && isDesktop;
 
   // A route like "/admin" is a path-prefix of every other admin route
   // ("/admin/users", "/admin/payment-logs", ...), so naive prefix matching
@@ -127,13 +141,21 @@ export function Sidebar({
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-sidebar transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:transition-[width]",
           open ? "translate-x-0" : "-translate-x-full",
-          collapsed ? "lg:w-[76px]" : "lg:w-64"
+          effectiveCollapsed ? "lg:w-[76px]" : "lg:w-64"
         )}
       >
-        <div className={cn("flex h-14 shrink-0 items-center gap-2 px-4", collapsed ? "lg:justify-center lg:px-0" : "justify-between")}>
+        <button
+          onClick={onClose}
+          aria-label="Tutup menu"
+          className="absolute top-1/2 -right-4 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-border-strong bg-sidebar text-muted shadow-lg shadow-black/30 transition-colors hover:text-foreground lg:hidden"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+
+        <div className={cn("flex h-14 shrink-0 items-center gap-2 px-4", effectiveCollapsed ? "lg:justify-center lg:px-0" : "justify-between")}>
           <Link href="/dashboard" className="flex min-w-0 items-center gap-2" onClick={onClose}>
             <Sparkles className="h-4 w-4 shrink-0 text-brand-hover" />
-            {!collapsed && (
+            {!effectiveCollapsed && (
               <span className="flex min-w-0 items-center gap-1.5">
                 <span className="truncate text-[15px] font-semibold tracking-tight text-foreground">MarketingAI</span>
                 {brandBadge && (
@@ -144,22 +166,19 @@ export function Sidebar({
               </span>
             )}
           </Link>
-          <button onClick={onClose} className="p-1 text-muted hover:text-foreground lg:hidden" aria-label="Tutup menu">
-            <X className="h-5 w-5" />
-          </button>
         </div>
 
         <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-2">
           {groups.map((group) => (
             <div key={group.label}>
-              {!collapsed && (
+              {!effectiveCollapsed && (
                 <p className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted/70">
                   {group.label}
                 </p>
               )}
               <div className="space-y-0.5">
                 {group.items.map((item) => (
-                  <NavLink key={item.href} item={item} active={isActive(item.href)} collapsed={collapsed} onClick={onClose} />
+                  <NavLink key={item.href} item={item} active={isActive(item.href)} collapsed={effectiveCollapsed} onClick={onClose} />
                 ))}
               </div>
             </div>
@@ -167,8 +186,8 @@ export function Sidebar({
         </nav>
 
         {typeof creditBalance === "number" && (
-          <div className={cn("shrink-0 border-t border-border px-3 py-3", collapsed && "px-2")}>
-            {collapsed ? (
+          <div className={cn("shrink-0 border-t border-border px-3 py-3", effectiveCollapsed && "px-2")}>
+            {effectiveCollapsed ? (
               <Link
                 href="/credits"
                 onClick={onClose}
@@ -226,17 +245,17 @@ export function Sidebar({
         {utilityItems && utilityItems.length > 0 && (
           <div className="shrink-0 space-y-0.5 border-t border-border px-3 py-2">
             {utilityItems.map((item) => (
-              <NavLink key={item.href} item={item} active={isActive(item.href)} collapsed={collapsed} onClick={onClose} />
+              <NavLink key={item.href} item={item} active={isActive(item.href)} collapsed={effectiveCollapsed} onClick={onClose} />
             ))}
           </div>
         )}
 
         {user && (
-          <div className={cn("flex shrink-0 items-center gap-2.5 border-t border-border px-4 py-3", collapsed && "lg:justify-center lg:px-0")}>
+          <div className={cn("flex shrink-0 items-center gap-2.5 border-t border-border px-4 py-3", effectiveCollapsed && "lg:justify-center lg:px-0")}>
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-2 text-[11px] font-semibold text-foreground">
               {initials}
             </div>
-            {!collapsed && (
+            {!effectiveCollapsed && (
               <div className="min-w-0">
                 <p className="truncate text-[13px] font-medium leading-tight text-foreground">{user.name}</p>
                 {user.email && <p className="truncate text-[11px] leading-tight text-muted">{user.email}</p>}
