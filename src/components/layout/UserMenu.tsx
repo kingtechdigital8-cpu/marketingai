@@ -6,6 +6,7 @@ import { signOut } from "next-auth/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, LogOut, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 export interface UserMenuItem {
   label: string;
@@ -21,6 +22,8 @@ interface UserMenuProps {
 
 export function UserMenu({ name, role, items = [] }: UserMenuProps) {
   const [open, setOpen] = useState(false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -79,7 +82,10 @@ export function UserMenu({ name, role, items = [] }: UserMenuProps) {
             ))}
             {items.length > 0 && <div className="my-1 border-t border-border" />}
             <button
-              onClick={() => signOut({ callbackUrl: "/" })}
+              onClick={() => {
+                setOpen(false);
+                setConfirmLogout(true);
+              }}
               className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm text-danger transition-colors hover:bg-danger-soft"
             >
               <LogOut className="h-4 w-4" />
@@ -88,6 +94,20 @@ export function UserMenu({ name, role, items = [] }: UserMenuProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ConfirmDialog
+        open={confirmLogout}
+        onClose={() => setConfirmLogout(false)}
+        onConfirm={() => {
+          setLoggingOut(true);
+          signOut({ callbackUrl: "/" });
+        }}
+        title="Keluar dari akun?"
+        description="Kamu perlu masuk kembali untuk mengakses dashboard."
+        confirmLabel="Keluar"
+        variant="danger"
+        isLoading={loggingOut}
+      />
     </div>
   );
 }
