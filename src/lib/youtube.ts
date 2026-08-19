@@ -137,6 +137,11 @@ export async function downloadYoutubeVideo(url: string, outputDir: string): Prom
       await sleep(attempt * 2000);
     }
   }
+  // describeYoutubeDownloadError() below only keeps a translated, truncated
+  // summary — logging the untranslated error here is the only place the real
+  // yt-dlp stderr (the actual reason: which HTTP error, which format request,
+  // etc.) survives, since callers only ever see the friendly message.
+  console.error("[youtube] download failed after all attempts, raw error:", lastErr);
   throw new Error(describeYoutubeDownloadError(lastErr));
 }
 
