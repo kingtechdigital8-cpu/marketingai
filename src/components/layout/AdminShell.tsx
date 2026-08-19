@@ -9,21 +9,41 @@ import {
   Coins,
   FileText,
   Bot,
+  Sparkles,
   Settings,
+  PersonStanding,
 } from "lucide-react";
-import { Sidebar, type SidebarNavItem } from "./Sidebar";
+import { Sidebar, type SidebarNavGroup } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { UserMenu, type UserMenuItem } from "./UserMenu";
 import { PageTransition } from "./PageTransition";
 
-const navItems: SidebarNavItem[] = [
-  { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
-  { label: "Pengguna", href: "/admin/users", icon: Users },
-  { label: "Transaksi", href: "/admin/transactions", icon: Receipt },
-  { label: "Harga Kredit", href: "/admin/credit-pricing", icon: Coins },
-  { label: "Log Pembayaran", href: "/admin/payment-logs", icon: FileText },
-  { label: "Provider AI", href: "/admin/ai-providers", icon: Bot },
-  { label: "Pengaturan Sistem", href: "/admin/settings", icon: Settings },
+const navGroups: SidebarNavGroup[] = [
+  {
+    label: "Overview",
+    items: [{ label: "Dashboard", href: "/admin", icon: LayoutDashboard }],
+  },
+  {
+    label: "Users & Billing",
+    items: [
+      { label: "Pengguna", href: "/admin/users", icon: Users },
+      { label: "Transaksi", href: "/admin/transactions", icon: Receipt },
+      { label: "Harga Kredit", href: "/admin/credit-pricing", icon: Coins },
+      { label: "Log Pembayaran", href: "/admin/payment-logs", icon: FileText },
+    ],
+  },
+  {
+    label: "AI System",
+    items: [
+      { label: "Provider AI", href: "/admin/ai-providers", icon: Bot },
+      { label: "Avatar Template", href: "/admin/avatar-templates", icon: Sparkles },
+      { label: "VRM Animation Studio", href: "/admin/avatar-animation", icon: PersonStanding },
+    ],
+  },
+  {
+    label: "System",
+    items: [{ label: "Pengaturan Sistem", href: "/admin/settings", icon: Settings }],
+  },
 ];
 
 const userMenuItems: UserMenuItem[] = [
@@ -38,9 +58,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen">
       <Sidebar
-        brandLabel="MarketingAI"
         brandBadge="Admin"
-        items={navItems}
+        groups={navGroups}
+        user={session?.user ? { name: session.user.name ?? "Admin", email: session.user.email ?? undefined } : undefined}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />

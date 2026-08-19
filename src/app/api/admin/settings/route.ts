@@ -9,8 +9,12 @@ const ALLOWED_KEYS = [
   "site.maintenanceMode",
   "tokopay.merchant_id",
   "tokopay.secret_key",
-  "tokopay.channel",
   "tokopay.enabled",
+  "tiktok.euler_api_key",
+  "tiktok.tiktool_api_key",
+  "tiktok.sign_provider",
+  "tiktok.enabled",
+  "tiktok.tts_provider",
 ];
 
 export async function GET() {

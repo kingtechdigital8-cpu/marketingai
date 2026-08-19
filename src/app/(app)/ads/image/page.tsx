@@ -6,7 +6,6 @@ import {
   Image as ImageIcon,
   Sparkles,
   Download,
-  History,
   Square,
   RectangleVertical,
   Smartphone,
@@ -19,20 +18,17 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button, buttonVariants } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
-import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Pagination } from "@/components/ui/Pagination";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ToolLayout } from "@/components/ui/ToolLayout";
 import { LoadingResult } from "@/components/ui/LoadingResult";
 import { ImageGenerationLoader } from "@/components/ui/ImageGenerationLoader";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { ToggleChip } from "@/components/ui/ToggleChip";
-import { CreditCostBadge } from "@/components/credits/CreditCostBadge";
+import { HistoryTable, type HistoryStatus } from "@/components/history/HistoryTable";
 import { useCreditCosts } from "@/lib/use-credit-costs";
 import { usePagination } from "@/lib/use-pagination";
 import { toggleListValue } from "@/lib/toggle-list";
@@ -41,6 +37,7 @@ import { cn } from "@/lib/utils";
 interface HistoryItem {
   id: string;
   title: string;
+  status: HistoryStatus;
   creditCost: number;
   createdAt: string;
 }
@@ -189,11 +186,11 @@ export default function ImagePage() {
     }
   }
 
-  async function openView(item: HistoryItem) {
-    setViewingId(item.id);
+  async function openView(id: string) {
+    setViewingId(id);
     setViewingDetail(null);
     setViewingLoading(true);
-    const res = await fetch(`/api/images/history/${item.id}`);
+    const res = await fetch(`/api/images/history/${id}`);
     const data = await res.json();
     setViewingLoading(false);
     if (res.ok) {
@@ -360,8 +357,7 @@ export default function ImagePage() {
               </div>
             </div>
             {error && <ErrorNotice message={error} />}
-            <div className="flex items-center justify-between pt-1">
-              <CreditCostBadge cost={creditCosts.IMAGE_GENERATION} />
+            <div className="flex items-center justify-end pt-1">
               <Button type="submit" isLoading={isLoading} disabled={customSizeInvalid}>
                 <Sparkles className="h-4 w-4" />
                 Buat Gambar
@@ -371,63 +367,15 @@ export default function ImagePage() {
         }
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <History className="h-4 w-4 text-brand" />
-            Riwayat Gambar
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {!history ? (
-            <div className="flex flex-col gap-2 p-5">
-              <div className="h-3 w-2/3 animate-pulse rounded bg-white/[.06]" />
-              <div className="h-3 w-1/2 animate-pulse rounded bg-white/[.06]" />
-            </div>
-          ) : historyError ? (
-            <div className="p-5">
-              <ErrorNotice message="Gagal memuat riwayat. Coba muat ulang halaman." />
-            </div>
-          ) : history.length === 0 ? (
-            <EmptyState icon={History} title="Belum ada riwayat" />
-          ) : (
-            <>
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-border text-xs uppercase text-muted">
-                  <tr>
-                    <th className="px-5 py-3 font-medium">Deskripsi</th>
-                    <th className="px-5 py-3 font-medium">Kredit</th>
-                    <th className="px-5 py-3 font-medium">Tanggal</th>
-                    <th className="px-5 py-3 font-medium" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {historyPage.map((item) => (
-                    <tr key={item.id} className="border-b border-border last:border-0 hover:bg-white/[.02]">
-                      <td className="max-w-md truncate px-5 py-3 font-medium text-foreground">{item.title}</td>
-                      <td className="px-5 py-3">
-                        <Badge variant="brand">{item.creditCost} kredit</Badge>
-                      </td>
-                      <td className="px-5 py-3 text-muted">
-                        {new Date(item.createdAt).toLocaleDateString("id-ID")}
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <button
-                          onClick={() => openView(item)}
-                          className="text-sm font-medium text-brand hover:underline"
-                        >
-                          Lihat
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <Pagination page={page} pageCount={pageCount} onPageChange={setPage} />
-            </>
-          )}
-        </CardContent>
-      </Card>
+      <HistoryTable
+        title="Riwayat Gambar"
+        items={history ? historyPage : null}
+        hasError={historyError}
+        page={page}
+        pageCount={pageCount}
+        onPageChange={setPage}
+        onView={openView}
+      />
 
       <Modal open={viewingId !== null} onClose={() => setViewingId(null)} title={viewingDetail?.title} size="lg">
         {viewingLoading ? (

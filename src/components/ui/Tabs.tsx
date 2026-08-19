@@ -26,6 +26,7 @@ export function Tabs({ items, value, onChange, layoutId = "tabs-active" }: TabsP
         return (
           <button
             key={item.id}
+            type="button"
             onClick={() => onChange(item.id)}
             className={cn(
               "relative flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",

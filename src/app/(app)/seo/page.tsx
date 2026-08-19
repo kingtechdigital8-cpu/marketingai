@@ -7,20 +7,17 @@ import {
   Search,
   FileText,
   Sparkles,
-  History,
   ExternalLink,
   Info,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Tabs } from "@/components/ui/Tabs";
 import { Modal } from "@/components/ui/Modal";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Pagination } from "@/components/ui/Pagination";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ToolLayout } from "@/components/ui/ToolLayout";
@@ -28,7 +25,7 @@ import { LoadingResult } from "@/components/ui/LoadingResult";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { CopyButton } from "@/components/ui/CopyButton";
 import { ToggleChip } from "@/components/ui/ToggleChip";
-import { CreditCostBadge } from "@/components/credits/CreditCostBadge";
+import { HistoryTable, type HistoryStatus } from "@/components/history/HistoryTable";
 import { useCreditCosts } from "@/lib/use-credit-costs";
 import { COUNTRIES } from "@/lib/countries";
 import { LANGUAGES } from "@/lib/languages";
@@ -55,6 +52,7 @@ interface HistoryItem {
   type: "SEO_KEYWORDS" | "SEO_META" | "SEO_ARTICLE";
   title: string;
   content: string;
+  status: HistoryStatus;
   creditCost: number;
   createdAt: string;
 }
@@ -346,65 +344,29 @@ export default function SeoPage() {
         </motion.div>
       </AnimatePresence>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <History className="h-4 w-4 text-brand" />
-            Riwayat SEO
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {!history ? (
-            <div className="flex flex-col gap-2 p-5">
-              <div className="h-3 w-2/3 animate-pulse rounded bg-white/[.06]" />
-              <div className="h-3 w-1/2 animate-pulse rounded bg-white/[.06]" />
-            </div>
-          ) : historyError ? (
-            <div className="p-5">
-              <ErrorNotice message="Gagal memuat riwayat. Coba muat ulang halaman." />
-            </div>
-          ) : history.length === 0 ? (
-            <EmptyState icon={History} title="Belum ada riwayat" />
-          ) : (
-            <>
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-border text-xs uppercase text-muted">
-                  <tr>
-                    <th className="px-5 py-3 font-medium">Judul</th>
-                    <th className="px-5 py-3 font-medium">Tipe</th>
-                    <th className="px-5 py-3 font-medium">Kredit</th>
-                    <th className="px-5 py-3 font-medium">Tanggal</th>
-                    <th className="px-5 py-3 font-medium" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {historyPage.map((item) => (
-                    <tr key={item.id} className="border-b border-border last:border-0 hover:bg-white/[.02]">
-                      <td className="max-w-xs truncate px-5 py-3 font-medium text-foreground">{item.title}</td>
-                      <td className="px-5 py-3">
-                        <Badge variant="brand">{TYPE_LABEL[item.type]}</Badge>
-                      </td>
-                      <td className="px-5 py-3 text-muted">{item.creditCost}</td>
-                      <td className="px-5 py-3 text-muted">
-                        {new Date(item.createdAt).toLocaleDateString("id-ID")}
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <button
-                          onClick={() => setViewing(item)}
-                          className="text-sm font-medium text-brand hover:underline"
-                        >
-                          Lihat
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <Pagination page={page} pageCount={pageCount} onPageChange={setPage} />
-            </>
-          )}
-        </CardContent>
-      </Card>
+      <HistoryTable
+        title="Riwayat SEO"
+        items={
+          history
+            ? historyPage.map((item) => ({
+                ...item,
+                title: (
+                  <span className="flex items-center gap-2">
+                    <Badge variant="brand" className="shrink-0">
+                      {TYPE_LABEL[item.type]}
+                    </Badge>
+                    <span className="truncate">{item.title}</span>
+                  </span>
+                ),
+              }))
+            : null
+        }
+        hasError={historyError}
+        page={page}
+        pageCount={pageCount}
+        onPageChange={setPage}
+        onView={(id) => setViewing(history?.find((h) => h.id === id) ?? null)}
+      />
 
       <Modal open={viewing !== null} onClose={() => setViewing(null)} title={viewing?.title} size="xl">
         {viewing && <HistoryDetail item={viewing} />}
@@ -425,8 +387,16 @@ function KeywordsTool({ onDone, onSaved }: { onDone: (balance: number) => void; 
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setIsLoading(true);
     setError(null);
+
+    const balanceRes = await fetch("/api/credits/balance");
+    const balanceData = await balanceRes.json().catch(() => null);
+    if (balanceRes.ok && balanceData && balanceData.creditBalance < creditCosts.SEO_KEYWORDS) {
+      setError(`Kredit Anda tidak cukup (butuh ${creditCosts.SEO_KEYWORDS}, sisa ${balanceData.creditBalance}).`);
+      return;
+    }
+
+    setIsLoading(true);
     const res = await fetch("/api/ai/seo", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -492,8 +462,7 @@ function KeywordsTool({ onDone, onSaved }: { onDone: (balance: number) => void; 
             placeholder="Cari negara..."
           />
           {error && <ErrorNotice message={error} />}
-          <div className="flex items-center justify-between pt-1">
-            <CreditCostBadge cost={creditCosts.SEO_KEYWORDS} />
+          <div className="flex items-center justify-end pt-1">
             <Button type="submit" isLoading={isLoading}>
               Cari Kata Kunci
             </Button>
@@ -515,8 +484,16 @@ function MetaTool({ onDone, onSaved }: { onDone: (balance: number) => void; onSa
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setIsLoading(true);
     setError(null);
+
+    const balanceRes = await fetch("/api/credits/balance");
+    const balanceData = await balanceRes.json().catch(() => null);
+    if (balanceRes.ok && balanceData && balanceData.creditBalance < creditCosts.SEO_META) {
+      setError(`Kredit Anda tidak cukup (butuh ${creditCosts.SEO_META}, sisa ${balanceData.creditBalance}).`);
+      return;
+    }
+
+    setIsLoading(true);
     const res = await fetch("/api/ai/seo", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -570,8 +547,7 @@ function MetaTool({ onDone, onSaved }: { onDone: (balance: number) => void; onSa
             placeholder="Cari bahasa..."
           />
           {error && <ErrorNotice message={error} />}
-          <div className="flex items-center justify-between pt-1">
-            <CreditCostBadge cost={creditCosts.SEO_META} />
+          <div className="flex items-center justify-end pt-1">
             <Button type="submit" isLoading={isLoading}>
               Buat Meta Description
             </Button>
@@ -595,8 +571,16 @@ function ArticleTool({ onDone, onSaved }: { onDone: (balance: number) => void; o
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setIsLoading(true);
     setError(null);
+
+    const balanceRes = await fetch("/api/credits/balance");
+    const balanceData = await balanceRes.json().catch(() => null);
+    if (balanceRes.ok && balanceData && balanceData.creditBalance < creditCosts.SEO_ARTICLE) {
+      setError(`Kredit Anda tidak cukup (butuh ${creditCosts.SEO_ARTICLE}, sisa ${balanceData.creditBalance}).`);
+      return;
+    }
+
+    setIsLoading(true);
     const res = await fetch("/api/ai/seo", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -683,8 +667,7 @@ function ArticleTool({ onDone, onSaved }: { onDone: (balance: number) => void; o
             </select>
           </div>
           {error && <ErrorNotice message={error} />}
-          <div className="flex items-center justify-between pt-1">
-            <CreditCostBadge cost={creditCosts.SEO_ARTICLE} />
+          <div className="flex items-center justify-end pt-1">
             <Button type="submit" isLoading={isLoading}>
               Tulis Artikel
             </Button>

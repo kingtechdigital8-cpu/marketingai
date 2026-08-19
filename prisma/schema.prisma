@@ -12,6 +12,11 @@ enum Role {
   ADMIN
 }
 
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
 enum GenerationType {
   SEO_KEYWORDS
   SEO_META
@@ -19,6 +24,9 @@ enum GenerationType {
   IMAGE_GENERATION
   VIDEO_GENERATION
   VOICE_DUB
+  TIKTOK_LIVE_REPLY
+  AVATAR_GENERATION
+  VIDEO_CLIP
 }
 
 enum GenerationStatus {
@@ -33,6 +41,12 @@ enum CreditTransactionType {
   USAGE
   REFUND
   BONUS
+  // Manual balance change by an admin from the user management page — kept
+  // distinct from BONUS/USAGE (which mean "signup bonus" / "spent on a
+  // generation") so this always shows up in a user's history as clearly
+  // admin-initiated, with amount's existing sign convention (negative for a
+  // deduction, positive for a grant) unchanged.
+  ADJUSTMENT
 }
 
 enum TopupStatus {
@@ -42,18 +56,310 @@ enum TopupStatus {
   EXPIRED
 }
 
+enum TiktokLiveStatus {
+  STOPPED
+  CONNECTING
+  LIVE
+  ERROR
+}
+
+enum TiktokReplyStatus {
+  NONE
+  GENERATING
+  GENERATED
+  FAILED
+}
+
+enum VideoClipBatchStatus {
+  PENDING
+  TRANSCRIBING
+  FINDING_MOMENTS
+  MOMENTS_FOUND
+  FAILED
+}
+
+enum VideoClipAssetKind {
+  LOGO
+  INTRO
+  OUTRO
+  MUSIC
+}
+
 model User {
   id                 String              @id @default(cuid())
   name               String
   email              String              @unique
   passwordHash       String
   role               Role                @default(USER)
+  // Suspended blocks login (see authorize() in auth.ts) and every
+  // authenticated API call (see requireUser() in api-auth.ts, which every
+  // protected route already funnels through) — not just a cosmetic flag.
+  status             UserStatus          @default(ACTIVE)
   creditBalance      Int                 @default(0)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   generations        Generation[]
   creditTransactions CreditTransaction[]
   topupTransactions  TopupTransaction[]
+  tiktokLiveConfig   TiktokLiveConfig?
+  videoClipBatches   VideoClipBatch[]
+  videoClipAssets    VideoClipAsset[]
+  avatarAnimations   AvatarAnimation[]
+}
+
+model TiktokLiveConfig {
+  id                 String              @id @default(cuid())
+  userId             String              @unique
+  tiktokUsername     String
+  enabled            Boolean             @default(false)
+  autoReply          Boolean             @default(false)
+  autoGreetJoins     Boolean             @default(false)
+  // Same auto-reply pipeline as chat/join, triggered off TikTok's like/gift/
+  // follow events instead (see onLike/onGift/onFollow in tiktok-live-manager.ts).
+  // Each gated independently since they have very different frequency/value
+  // profiles — likes fire constantly and are heavily throttled, gifts are
+  // rarer and acknowledged individually, follows sit in between.
+  autoReplyLikes     Boolean             @default(false)
+  autoReplyGifts     Boolean             @default(false)
+  autoReplyFollows   Boolean             @default(false)
+  aiPurpose          String?
+  businessName       String?
+  businessInfo       String?             @db.Text
+  aiTone             String?
+  callToAction       String?             @db.Text
+  avoidTopics        String?             @db.Text
+  aiContext          String?             @db.Text
+  // Which TTS backend this is interpreted against ("elevenlabs" voice_id or
+  // a Google Chirp3 HD voice name like "id-ID-Chirp3-HD-Autonoe") is a
+  // platform-wide admin choice (Setting key "tiktok.tts_provider" — see
+  // getActiveTtsProvider() in tiktok-live-tts-provider.ts), not per-user, so
+  // there's no ttsProvider column here — every user's `voice` is interpreted
+  // against whichever single provider the admin currently has active.
+  voice              String              @default("alloy")
+  status             TiktokLiveStatus    @default(STOPPED)
+  lastError          String?             @db.Text
+  roomId             String?
+  // Optional add-on: renders each reply as a talking host, a realtime VRM 3D
+  // character rendered client-side, lip-synced from ElevenLabs'/Google's
+  // per-character timing data. virtualHostVrmKey / overlayToken are only
+  // ever set together — the overlay URL is generated the moment a VRM file
+  // is first uploaded (see src/app/api/tiktok-live/host-vrm/route.ts).
+  // (A "video" mode — fal.ai Avatar AI rendering a real clip from a photo —
+  // used to exist alongside this; removed per explicit request as too slow/
+  // expensive versus the realtime VRM avatar. TiktokLiveComment rows from
+  // that era may still reference an AVATAR_GENERATION Generation via "Aset
+  // Saya" — untouched, that history stays browsable.)
+  virtualHostEnabled Boolean             @default(false)
+  virtualHostVrmKey  String?
+  // Which Mixamo idle animation to retarget onto the VRM's lower body
+  // (hips/legs only — see mixamo-vrm-retarget.ts). Auto-set from the picked
+  // AvatarTemplate.gender when choosing a gallery avatar; for a self-uploaded
+  // VRM (host-vrm/route.ts) there's no template to read it from, so it stays
+  // whatever the user last picked/defaulted to.
+  virtualHostGender  String              @default("female")
+  overlayToken       String?             @unique
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comments           TiktokLiveComment[]
+}
+
+model TiktokLiveComment {
+  id                String            @id @default(cuid())
+  configId          String
+  userId            String
+  commenterName     String
+  commentText       String            @db.Text
+  // The chat/join event's own id from TikTok (see extractMsgId in
+  // tiktok-live-manager.ts) — both sign providers can replay recent events
+  // right after (re)connecting, and without this a replay creates duplicate
+  // comment rows and re-charges credits for an AI reply that was already
+  // generated once. Nullable: kept only best-effort (an event whose id
+  // couldn't be read still gets saved, just without dedup protection).
+  tiktokMsgId       String?           @unique
+  suggestedReply    String?           @db.Text
+  replyAudioUrl     String?           @db.Text
+  replyStatus       TiktokReplyStatus @default(NONE)
+  replyError        String?           @db.Text
+  creditCost        Int?
+  // [{vowel, start, end}] in seconds, relative to replyAudioUrl's own start
+  // — see tiktok-live-viseme.ts. Drives the VRM avatar's lip-sync, ready
+  // immediately alongside the audio.
+  visemeData        Json?
+  // AI-classified alongside the reply text itself (one OpenAI call, JSON
+  // mode — see generateReply in tiktok-live-manager.ts), not a separate
+  // pass. One of the 8 preset names (see AVATAR_EMOTIONS) or null/"neutral".
+  // Drives the VRM avatar's facial expression.
+  emotion           String?
+  // Same AI classification, one of the 9 preset names (see AVATAR_GESTURES)
+  // or null/"none" when nothing fits — never forced every reply. Drives a
+  // one-shot procedural hand/arm/head animation on the VRM avatar. Forced
+  // null server-side whenever avatarClip below is set, so the two never
+  // fight over the same arm bones (see AVATAR_MOTION_RULE's comment).
+  gesture           String?
+  // Same AI classification pass, one of the 7 Mixamo-retargeted full-body
+  // clip names (see AVATAR_CLIP_NAMES in avatar-animation-registry.ts) or
+  // null/"none". Drives AvatarAnimationController.playAnimation() — a
+  // richer, full-body alternative to `gesture` above, preferred by the
+  // classifier prompt whenever it fits.
+  avatarClip        String?
+  // AI-classified alongside the reply text itself, from the CURRENT global
+  // Animation Library (see AvatarAnimation) rather than a fixed built-in
+  // vocabulary — offered to the classifier as {id: name} pairs fetched
+  // fresh each call (see generateReply in tiktok-live-manager.ts), so it
+  // stays in sync automatically as admins add/edit library entries. Forced
+  // to null server-side whenever avatarClip above is set (same three-way
+  // exclusivity as gesture/avatarClip — see AVATAR_MOTION_RULE's comment):
+  // a full-body clip and an arbitrary custom animation would fight over
+  // the same bones. SetNull on delete: if an admin later removes this
+  // animation from the library, old comment history just loses the
+  // dangling reference rather than erroring or cascading.
+  customAnimationId String?
+  customAnimation   AvatarAnimation?  @relation(fields: [customAnimationId], references: [id], onDelete: SetNull)
+  createdAt         DateTime          @default(now())
+  config            TiktokLiveConfig  @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  @@index([configId, createdAt])
+}
+
+// System-owned VRM files offered in the "avatar3d" host gallery, uploaded by
+// an admin (see /admin/avatar-templates) — shared across every user, never
+// tied to one account. A user's TiktokLiveConfig.virtualHostVrmKey stores
+// this row's vrmKey directly (not a foreign key), matched back to a template
+// by key equality — see tiktok-live-avatar-templates.ts. That means deleting
+// a template here does NOT cascade to users who already picked it; their
+// config keeps pointing at the (now possibly missing) R2 key, same trade-off
+// the admin UI warns about before deleting.
+model AvatarTemplate {
+  id           String   @id @default(cuid())
+  label        String
+  vrmKey       String   @unique
+  thumbnailKey String
+  credit       String
+  // "male" | "female" — which Mixamo idle animation (see
+  // mixamo-vrm-retarget.ts) gets retargeted onto this template's lower body.
+  // Copied onto TiktokLiveConfig.virtualHostGender the moment a user picks
+  // this template, same pattern as vrmKey being copied onto
+  // virtualHostVrmKey rather than stored as a live foreign-key relation.
+  gender       String   @default("female")
+  order        Int      @default(0)
+  createdAt    DateTime @default(now())
+}
+
+// A shared, GLOBAL Animation Library asset (built/edited via the VRM
+// Animation Studio) — usable by ANY VRM avatar during a real TikTok Live
+// stream, not tied to one user's own config or one specific VRM model.
+// Cross-VRM compatibility comes for free from the existing humanoid-bone
+// architecture: `data`'s bone keys are VRM HUMANOID bone names (see
+// avatar-keyframe-playback.ts's KeyframePose — the exact same normalized
+// names vrm.humanoid.getNormalizedBoneNode() resolves on any spec-
+// compliant VRM, never a specific model's raw mesh/skeleton names), so
+// nothing here needs a per-avatar copy. `userId` is creation audit trail
+// ONLY (nullable, SetNull on delete) — it does NOT gate who can see/use/
+// edit this row; every admin manages the same shared library, and every
+// live avatar can play any entry, matching AvatarTemplate's own "system-
+// owned, shared" pattern. `slug` is therefore GLOBALLY unique (not per-
+// user — see avatar-animation-slug.ts) and doubles as the stable identity
+// the VRM Animation Studio's "Edit Gesture" uses to reopen a previously-
+// edited built-in gesture (see the studio page's openGesture). `data`
+// holds the keyframe array exactly as authored in the studio (Keyframe[]:
+// id/time/interpolation + pose{bones/leftFingers/rightFingers/face}),
+// stored as opaque JSON since its shape is editor-internal and still
+// evolving.
+model AvatarAnimation {
+  id        String              @id @default(cuid())
+  userId    String?
+  name      String
+  slug      String              @unique
+  duration  Float
+  data      Json
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+  user      User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  comments  TiktokLiveComment[]
+
+  @@index([createdAt])
+}
+
+model VideoClipBatch {
+  id                     String               @id @default(cuid())
+  userId                 String
+  sourceLabel            String
+  sourceVideoKey         String?
+  momentQuery            String               @db.Text
+  requestedCount         Int
+  aspectRatio            String
+  headlineEnabled        Boolean              @default(false)
+  headlineFont           String               @default("inter")
+  headlineColor          String               @default("white")
+  headlineBackground     String               @default("black")
+  headlineAnimation      String               @default("none")
+  headlineBold           Boolean              @default(false)
+  headlineItalic         Boolean              @default(false)
+  headlineAlign          String               @default("center")
+  headlineFontScale      Int                  @default(100)
+  headlinePosition       String               @default("top")
+  headlinePositionX      Int                  @default(50)
+  headlinePositionY      Int                  @default(6)
+  subtitleEnabled        Boolean              @default(false)
+  subtitleFont           String               @default("inter")
+  subtitleColor          String               @default("white")
+  subtitleBackground     String               @default("black")
+  subtitleAnimation      String               @default("none")
+  subtitleBold           Boolean              @default(false)
+  subtitleItalic         Boolean              @default(false)
+  subtitleUnderline      Boolean              @default(false)
+  subtitleAlign          String               @default("center")
+  subtitleFontScale      Int                  @default(100)
+  subtitleUppercase      Boolean              @default(false)
+  subtitleHighlightColor String               @default("10B981")
+  subtitleStrokeColor    String               @default("000000")
+  subtitleStrokeWidth    Int                  @default(2)
+  subtitleShadowEnabled  Boolean              @default(false)
+  subtitleShadowOffsetX  Int                  @default(2)
+  subtitleShadowOffsetY  Int                  @default(2)
+  subtitlePosition       String               @default("auto")
+  subtitlePositionX      Int                  @default(50)
+  subtitlePositionY      Int                  @default(85)
+  subtitleLineMode       String               @default("multi")
+  socialCaptionEnabled   Boolean              @default(false)
+  effectPreset           String?
+  fitMode                String               @default("fill")
+  smartCropEnabled       Boolean              @default(false)
+  overlayLogoKey         String?
+  overlayLogoPosition    String               @default("top-right")
+  overlayCtaText         String?              @db.Text
+  introKey               String?
+  outroKey               String?
+  musicKey               String?
+  musicVolumePercent     Int                  @default(20)
+  removeFillerWords      Boolean              @default(false)
+  removePauses           Boolean              @default(false)
+  autoTransitions        Boolean              @default(false)
+  durationSeconds        Int
+  status                 VideoClipBatchStatus @default(PENDING)
+  moments                Json?
+  transcript             Json?
+  analysisCreditCost     Int
+  errorMessage           String?              @db.Text
+  createdAt              DateTime             @default(now())
+  user                   User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clips                  Generation[]
+
+  @@index([userId, createdAt])
+}
+
+model VideoClipAsset {
+  id        String             @id @default(cuid())
+  userId    String
+  kind      VideoClipAssetKind
+  key       String
+  url       String             @db.Text
+  label     String
+  createdAt DateTime           @default(now())
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind])
 }
 
 model TopupTransaction {
@@ -69,6 +375,7 @@ model TopupTransaction {
   qrString     String?     @db.Text
   qrLink       String?     @db.Text
   paymentGuide String?     @db.Text
+  vaNumber     String?     @db.Text
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
   user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -77,18 +384,21 @@ model TopupTransaction {
 }
 
 model Generation {
-  id           String              @id @default(cuid())
-  userId       String
-  type         GenerationType
-  status       GenerationStatus    @default(COMPLETED)
-  title        String
-  input        Json
-  content      String?             @db.LongText
-  creditCost   Int
-  errorMessage String?             @db.Text
-  createdAt    DateTime            @default(now())
-  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transactions CreditTransaction[]
+  id               String              @id @default(cuid())
+  userId           String
+  type             GenerationType
+  status           GenerationStatus    @default(COMPLETED)
+  title            String
+  input            Json
+  content          String?             @db.LongText
+  socialCaption    String?             @db.Text
+  creditCost       Int
+  errorMessage     String?             @db.Text
+  videoClipBatchId String?
+  createdAt        DateTime            @default(now())
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions     CreditTransaction[]
+  videoClipBatch   VideoClipBatch?     @relation(fields: [videoClipBatchId], references: [id], onDelete: SetNull)
 
   @@index([userId, type])
 }

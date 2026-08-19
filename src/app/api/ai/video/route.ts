@@ -11,6 +11,7 @@ import { ensureDbConnection } from "@/lib/with-db-retry";
 const MAX_REFERENCE_IMAGE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_REFERENCE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const ALLOWED_DURATIONS = new Set(["5", "10"]);
+const MAX_NEGATIVE_PROMPT_LENGTH = 500;
 
 export async function POST(request: Request) {
   const { session, error } = await requireUser();
@@ -27,6 +28,9 @@ export async function POST(request: Request) {
     ? (durationRaw as "5" | "10")
     : "5";
   const referenceImage = form.get("referenceImage");
+  const negativePromptRaw = form.get("negativePrompt");
+  const negativePrompt =
+    typeof negativePromptRaw === "string" ? negativePromptRaw.trim().slice(0, MAX_NEGATIVE_PROMPT_LENGTH) : "";
 
   if (!prompt) {
     return NextResponse.json({ error: "Deskripsi video wajib diisi." }, { status: 400 });
@@ -53,7 +57,7 @@ export async function POST(request: Request) {
     const imageKey = `videos/${session.user.id}/${randomUUID()}-source.${ext}`;
     const imageUrl = await uploadToR2(buffer, imageKey, referenceImage.type);
 
-    const job = await submitVideoJob({ prompt, imageUrl, duration });
+    const job = await submitVideoJob({ prompt, imageUrl, duration, negativePrompt });
     // falai-video's base cost is per second of output (Kling bills that way); multiply by the chosen duration.
     const cost = roundCreditCost((await getProviderCost("falai-video")) * Number(duration));
 
@@ -64,6 +68,7 @@ export async function POST(request: Request) {
       title: prompt.length > 80 ? `${prompt.slice(0, 80)}...` : prompt,
       input: {
         prompt,
+        negativePrompt: negativePrompt || null,
         duration,
         referenceImageUrl: imageUrl,
         falRequestId: job.requestId,

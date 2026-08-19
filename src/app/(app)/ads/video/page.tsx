@@ -2,23 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Video as VideoIcon, Sparkles, Download, History, Upload, X, Mic, Play } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Video as VideoIcon, Sparkles, Download, Upload, X, Mic, Play } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
-import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Pagination } from "@/components/ui/Pagination";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ToolLayout } from "@/components/ui/ToolLayout";
 import { ImageGenerationLoader } from "@/components/ui/ImageGenerationLoader";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { Tabs } from "@/components/ui/Tabs";
-import { CreditCostBadge } from "@/components/credits/CreditCostBadge";
+import { HistoryTable } from "@/components/history/HistoryTable";
 import { useCreditCosts } from "@/lib/use-credit-costs";
 import { usePagination } from "@/lib/use-pagination";
 import { cn } from "@/lib/utils";
+import { TTS_VOICES, type TtsVoice } from "@/lib/tts-voices";
 
 type JobStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
 
@@ -39,13 +37,6 @@ interface JobDetail {
   creditCost: number;
   createdAt: string;
 }
-
-const STATUS_BADGE: Record<JobStatus, { label: string; variant: "neutral" | "warning" | "success" | "danger" }> = {
-  PENDING: { label: "Menunggu", variant: "neutral" },
-  PROCESSING: { label: "Diproses", variant: "warning" },
-  COMPLETED: { label: "Selesai", variant: "success" },
-  FAILED: { label: "Gagal", variant: "danger" },
-};
 
 function isPending(status: JobStatus) {
   return status === "PENDING" || status === "PROCESSING";
@@ -95,6 +86,7 @@ function VideoGeneratorTab() {
   const { update } = useSession();
   const creditCosts = useCreditCosts();
   const [prompt, setPrompt] = useState("");
+  const [negativePrompt, setNegativePrompt] = useState("");
   const [duration, setDuration] = useState<"5" | "10">("5");
   const [referenceItem, setReferenceItem] = useState<{ file: File; previewUrl: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -216,6 +208,7 @@ function VideoGeneratorTab() {
     try {
       const formData = new FormData();
       formData.set("prompt", prompt);
+      formData.set("negativePrompt", negativePrompt);
       formData.set("duration", duration);
       formData.set("referenceImage", referenceItem.file);
       const res = await fetch("/api/ai/video", { method: "POST", body: formData });
@@ -243,11 +236,11 @@ function VideoGeneratorTab() {
     }
   }
 
-  async function openView(item: HistoryItem) {
-    setViewingId(item.id);
+  async function openView(id: string) {
+    setViewingId(id);
     setViewingDetail(null);
     setViewingLoading(true);
-    const res = await fetch(`/api/ai/video/${item.id}`);
+    const res = await fetch(`/api/ai/video/${id}`);
     const data = await res.json();
     setViewingLoading(false);
     if (res.ok) setViewingDetail(data.generation);
@@ -301,6 +294,16 @@ function VideoGeneratorTab() {
               rows={4}
               required
             />
+            <Textarea
+              label="Negative Prompt (opsional)"
+              placeholder="mis. blur, distorsi, kualitas rendah, teks, watermark"
+              value={negativePrompt}
+              onChange={(e) => setNegativePrompt(e.target.value.slice(0, 500))}
+              rows={2}
+            />
+            <p className="-mt-2 text-xs text-muted">
+              Hal-hal yang ingin dihindari muncul di video. Kosongkan untuk pakai bawaan AI.
+            </p>
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-foreground">Gambar Produk / Objek / Karakter</label>
               <p className="text-xs text-muted">Gambar ini jadi frame awal video yang dihasilkan AI.</p>
@@ -355,8 +358,7 @@ function VideoGeneratorTab() {
               </div>
             </div>
             {error && <ErrorNotice message={error} />}
-            <div className="flex items-center justify-between pt-1">
-              <CreditCostBadge cost={creditCosts.VIDEO_GENERATION} />
+            <div className="flex items-center justify-end pt-1">
               <Button type="submit" isLoading={isSubmitting}>
                 <Sparkles className="h-4 w-4" />
                 Buat Video
@@ -366,71 +368,15 @@ function VideoGeneratorTab() {
         }
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <History className="h-4 w-4 text-brand" />
-            Riwayat Video
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {!history ? (
-            <div className="flex flex-col gap-2 p-5">
-              <div className="h-3 w-2/3 animate-pulse rounded bg-white/[.06]" />
-              <div className="h-3 w-1/2 animate-pulse rounded bg-white/[.06]" />
-            </div>
-          ) : historyError ? (
-            <div className="p-5">
-              <ErrorNotice message="Gagal memuat riwayat. Coba muat ulang halaman." />
-            </div>
-          ) : history.length === 0 ? (
-            <div className="p-5">
-              <EmptyState icon={History} title="Belum ada riwayat" />
-            </div>
-          ) : (
-            <>
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-border text-xs uppercase text-muted">
-                  <tr>
-                    <th className="px-5 py-3 font-medium">Deskripsi</th>
-                    <th className="px-5 py-3 font-medium">Status</th>
-                    <th className="px-5 py-3 font-medium">Kredit</th>
-                    <th className="px-5 py-3 font-medium">Tanggal</th>
-                    <th className="px-5 py-3 font-medium" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {historyPage.map((item) => (
-                    <tr key={item.id} className="border-b border-border last:border-0 hover:bg-white/[.02]">
-                      <td className="max-w-xs truncate px-5 py-3 text-foreground">{item.title}</td>
-                      <td className="px-5 py-3">
-                        <Badge variant={STATUS_BADGE[item.status].variant}>{STATUS_BADGE[item.status].label}</Badge>
-                      </td>
-                      <td className="px-5 py-3 text-muted">{item.creditCost}</td>
-                      <td className="px-5 py-3 text-muted">
-                        {new Date(item.createdAt).toLocaleDateString("id-ID", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <button
-                          onClick={() => openView(item)}
-                          className="text-sm font-medium text-brand hover:underline"
-                        >
-                          Lihat
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <Pagination page={page} pageCount={pageCount} onPageChange={setPage} />
-            </>
-          )}
-        </CardContent>
-      </Card>
+      <HistoryTable
+        title="Riwayat Video"
+        items={history ? historyPage : null}
+        hasError={historyError}
+        page={page}
+        pageCount={pageCount}
+        onPageChange={setPage}
+        onView={openView}
+      />
 
       <Modal open={viewingId !== null} onClose={() => setViewingId(null)} title={displayedDetail?.title} size="lg">
         {viewingLoading ? (
@@ -480,14 +426,7 @@ const VOICE_LOADING_MESSAGES = [
 const VOICE_STORAGE_KEY = "marketingai:lastVoiceDubJobId";
 const MAX_TEXT_LENGTH = 500;
 
-const VOICES = [
-  { value: "alloy", label: "Alloy (netral)" },
-  { value: "nova", label: "Nova (wanita, ceria)" },
-  { value: "shimmer", label: "Shimmer (wanita, lembut)" },
-  { value: "echo", label: "Echo (pria, hangat)" },
-  { value: "onyx", label: "Onyx (pria, dalam)" },
-  { value: "fable", label: "Fable (pria, ekspresif)" },
-];
+const VOICES = TTS_VOICES;
 
 function VoiceChangerTab() {
   const { update } = useSession();
@@ -498,7 +437,7 @@ function VoiceChangerTab() {
   const [uploadedVideo, setUploadedVideo] = useState<{ file: File; previewUrl: string } | null>(null);
   const [audioMode, setAudioMode] = useState<"tts" | "upload">("tts");
   const [text, setText] = useState("");
-  const [voice, setVoice] = useState(VOICES[0].value);
+  const [voice, setVoice] = useState<TtsVoice>(VOICES[0].value);
   const [uploadedAudio, setUploadedAudio] = useState<File | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -703,11 +642,11 @@ function VoiceChangerTab() {
     }
   }
 
-  async function openView(item: HistoryItem) {
-    setViewingId(item.id);
+  async function openView(id: string) {
+    setViewingId(id);
     setViewingDetail(null);
     setViewingLoading(true);
-    const res = await fetch(`/api/ai/voice-changer/${item.id}`);
+    const res = await fetch(`/api/ai/voice-changer/${id}`);
     const data = await res.json();
     setViewingLoading(false);
     if (res.ok) setViewingDetail(data.generation);
@@ -881,7 +820,7 @@ function VoiceChangerTab() {
                   <div className="flex gap-2">
                     <select
                       value={voice}
-                      onChange={(e) => setVoice(e.target.value)}
+                      onChange={(e) => setVoice(e.target.value as TtsVoice)}
                       className="h-10 flex-1 rounded-lg border border-border bg-surface px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand"
                     >
                       {VOICES.map((v) => (
@@ -933,8 +872,7 @@ function VoiceChangerTab() {
               </div>
             )}
             {error && <ErrorNotice message={error} />}
-            <div className="flex items-center justify-between pt-1">
-              <CreditCostBadge cost={creditCosts.VOICE_DUB} />
+            <div className="flex items-center justify-end pt-1">
               <Button type="submit" isLoading={isSubmitting}>
                 <Sparkles className="h-4 w-4" />
                 Ubah Suara
@@ -944,71 +882,15 @@ function VoiceChangerTab() {
         }
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <History className="h-4 w-4 text-brand" />
-            Riwayat Voice Changer
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {!history ? (
-            <div className="flex flex-col gap-2 p-5">
-              <div className="h-3 w-2/3 animate-pulse rounded bg-white/[.06]" />
-              <div className="h-3 w-1/2 animate-pulse rounded bg-white/[.06]" />
-            </div>
-          ) : historyError ? (
-            <div className="p-5">
-              <ErrorNotice message="Gagal memuat riwayat. Coba muat ulang halaman." />
-            </div>
-          ) : history.length === 0 ? (
-            <div className="p-5">
-              <EmptyState icon={History} title="Belum ada riwayat" />
-            </div>
-          ) : (
-            <>
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-border text-xs uppercase text-muted">
-                  <tr>
-                    <th className="px-5 py-3 font-medium">Dialog</th>
-                    <th className="px-5 py-3 font-medium">Status</th>
-                    <th className="px-5 py-3 font-medium">Kredit</th>
-                    <th className="px-5 py-3 font-medium">Tanggal</th>
-                    <th className="px-5 py-3 font-medium" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {historyPage.map((item) => (
-                    <tr key={item.id} className="border-b border-border last:border-0 hover:bg-white/[.02]">
-                      <td className="max-w-xs truncate px-5 py-3 text-foreground">{item.title}</td>
-                      <td className="px-5 py-3">
-                        <Badge variant={STATUS_BADGE[item.status].variant}>{STATUS_BADGE[item.status].label}</Badge>
-                      </td>
-                      <td className="px-5 py-3 text-muted">{item.creditCost}</td>
-                      <td className="px-5 py-3 text-muted">
-                        {new Date(item.createdAt).toLocaleDateString("id-ID", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <button
-                          onClick={() => openView(item)}
-                          className="text-sm font-medium text-brand hover:underline"
-                        >
-                          Lihat
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <Pagination page={page} pageCount={pageCount} onPageChange={setPage} />
-            </>
-          )}
-        </CardContent>
-      </Card>
+      <HistoryTable
+        title="Riwayat Voice Changer"
+        items={history ? historyPage : null}
+        hasError={historyError}
+        page={page}
+        pageCount={pageCount}
+        onPageChange={setPage}
+        onView={openView}
+      />
 
       <Modal open={viewingId !== null} onClose={() => setViewingId(null)} title={displayedDetail?.title} size="lg">
         {viewingLoading ? (

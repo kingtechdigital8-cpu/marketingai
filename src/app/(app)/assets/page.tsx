@@ -6,6 +6,8 @@ import {
   Image as ImageIcon,
   Video as VideoIcon,
   Mic,
+  UserRound,
+  Scissors,
   Download,
   Play,
   type LucideIcon,
@@ -21,7 +23,7 @@ import { Tabs } from "@/components/ui/Tabs";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { usePagination } from "@/lib/use-pagination";
 
-type AssetType = "IMAGE_GENERATION" | "VIDEO_GENERATION" | "VOICE_DUB";
+type AssetType = "IMAGE_GENERATION" | "VIDEO_GENERATION" | "VOICE_DUB" | "AVATAR_GENERATION" | "VIDEO_CLIP";
 // FAILED generations are excluded server-side, so they never reach this page.
 type AssetStatus = "PENDING" | "PROCESSING" | "COMPLETED";
 
@@ -39,12 +41,16 @@ const TYPE_LABEL: Record<AssetType, string> = {
   IMAGE_GENERATION: "Gambar",
   VIDEO_GENERATION: "Video",
   VOICE_DUB: "Voice Changer",
+  AVATAR_GENERATION: "Avatar AI",
+  VIDEO_CLIP: "Auto Clip",
 };
 
 const TYPE_ICON: Record<AssetType, LucideIcon> = {
   IMAGE_GENERATION: ImageIcon,
   VIDEO_GENERATION: VideoIcon,
   VOICE_DUB: Mic,
+  AVATAR_GENERATION: UserRound,
+  VIDEO_CLIP: Scissors,
 };
 
 const STATUS_BADGE: Record<AssetStatus, { label: string; variant: "neutral" | "warning" | "success" }> = {
@@ -57,6 +63,8 @@ const DOWNLOAD_BASE: Record<AssetType, string> = {
   IMAGE_GENERATION: "/api/images/download",
   VIDEO_GENERATION: "/api/videos/download",
   VOICE_DUB: "/api/voice-changer/download",
+  AVATAR_GENERATION: "/api/avatars/download",
+  VIDEO_CLIP: "/api/videoclips/download",
 };
 
 const FILTERS: { id: "all" | AssetType; label: string; icon: LucideIcon }[] = [
@@ -64,6 +72,8 @@ const FILTERS: { id: "all" | AssetType; label: string; icon: LucideIcon }[] = [
   { id: "IMAGE_GENERATION", label: "Gambar", icon: ImageIcon },
   { id: "VIDEO_GENERATION", label: "Video", icon: VideoIcon },
   { id: "VOICE_DUB", label: "Voice Changer", icon: Mic },
+  { id: "AVATAR_GENERATION", label: "Avatar AI", icon: UserRound },
+  { id: "VIDEO_CLIP", label: "Auto Clip", icon: Scissors },
 ];
 
 export default function AssetsPage() {

@@ -1,5 +1,13 @@
 import Link from "next/link";
 import { ReactNode } from "react";
+import type { Metadata } from "next";
+
+// Login/register aren't content pages — kept crawlable (not blocked in
+// robots.ts) so Google can actually fetch them and see this tag, but this
+// keeps them out of search results themselves.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (

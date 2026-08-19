@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { ProviderNotConfiguredError } from "@/lib/errors";
 
 function getR2Config() {
@@ -31,8 +31,13 @@ function getR2Client(accountId: string, accessKeyId: string, secretAccessKey: st
   return client;
 }
 
+export function getR2PublicUrl(key: string): string {
+  const { publicUrl } = getR2Config();
+  return `${publicUrl.replace(/\/$/, "")}/${key}`;
+}
+
 export async function uploadToR2(buffer: Buffer, key: string, contentType: string): Promise<string> {
-  const { accountId, accessKeyId, secretAccessKey, bucket, publicUrl } = getR2Config();
+  const { accountId, accessKeyId, secretAccessKey, bucket } = getR2Config();
   const client = getR2Client(accountId, accessKeyId, secretAccessKey);
 
   await client.send(
@@ -44,7 +49,13 @@ export async function uploadToR2(buffer: Buffer, key: string, contentType: strin
     })
   );
 
-  return `${publicUrl.replace(/\/$/, "")}/${key}`;
+  return getR2PublicUrl(key);
+}
+
+export async function deleteFromR2(key: string): Promise<void> {
+  const { accountId, accessKeyId, secretAccessKey, bucket } = getR2Config();
+  const client = getR2Client(accountId, accessKeyId, secretAccessKey);
+  await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
 }
 
 /**

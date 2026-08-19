@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import {
   Users,
   Receipt,
@@ -17,13 +18,6 @@ import { Badge } from "@/components/ui/Badge";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { PageHeader } from "@/components/ui/PageHeader";
 
-const stats = [
-  { label: "Total Pengguna", value: "1.284" },
-  { label: "Pendapatan Bulan Ini", value: "Rp 42.500.000" },
-  { label: "Transaksi Pending", value: "6" },
-  { label: "Job AI Aktif", value: "23" },
-];
-
 const managementLinks = [
   { label: "Pengguna", description: "Kelola akun, role, dan status pengguna.", href: "/admin/users", icon: Users },
   { label: "Transaksi", description: "Pantau seluruh transaksi top-up kredit.", href: "/admin/transactions", icon: Receipt },
@@ -33,19 +27,73 @@ const managementLinks = [
   { label: "Pengaturan Sistem", description: "Konfigurasi umum platform.", href: "/admin/settings", icon: Settings },
 ];
 
-const recentUsers = [
-  { id: 1, name: "Budi Santoso", email: "budi@toko.com", credit: 250, status: "Aktif" },
-  { id: 2, name: "Siti Aminah", email: "siti@usaha.co.id", credit: 40, status: "Aktif" },
-  { id: 3, name: "Andi Wijaya", email: "andi@brand.id", credit: 0, status: "Suspend" },
-];
+interface RecentUser {
+  id: string;
+  name: string;
+  email: string;
+  creditBalance: number;
+  status: "ACTIVE" | "SUSPENDED";
+}
 
-const statusVariant: Record<string, "success" | "danger"> = {
-  Aktif: "success",
-  Suspend: "danger",
-};
+interface DashboardData {
+  totalUsers: number;
+  revenueThisMonthIdr: number;
+  pendingTransactions: number;
+  activeJobs: number;
+  recentUsers: RecentUser[];
+}
+
+const idNumber = new Intl.NumberFormat("id-ID");
+const idCurrency = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
 
 export default function AdminOverviewPage() {
-  const [suspendTarget, setSuspendTarget] = useState<number | null>(null);
+  const { data: session } = useSession();
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [suspendTarget, setSuspendTarget] = useState<RecentUser | null>(null);
+  const [suspending, setSuspending] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/dashboard")
+      .then(async (res) => {
+        if (!res.ok) throw new Error("failed");
+        setData(await res.json());
+        setLoadError(false);
+      })
+      .catch(() => setLoadError(true));
+  }, []);
+
+  const stats = data
+    ? [
+        { label: "Total Pengguna", value: idNumber.format(data.totalUsers) },
+        { label: "Pendapatan Bulan Ini", value: idCurrency.format(data.revenueThisMonthIdr) },
+        { label: "Transaksi Pending", value: idNumber.format(data.pendingTransactions) },
+        { label: "Job AI Aktif", value: idNumber.format(data.activeJobs) },
+      ]
+    : [];
+
+  async function confirmSuspend() {
+    if (!suspendTarget) return;
+    setSuspending(true);
+    try {
+      const res = await fetch(`/api/admin/users/${suspendTarget.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "SUSPENDED" }),
+      });
+      if (res.ok && data) {
+        setData({
+          ...data,
+          recentUsers: data.recentUsers.map((u) =>
+            u.id === suspendTarget.id ? { ...u, status: "SUSPENDED" } : u
+          ),
+        });
+      }
+    } finally {
+      setSuspending(false);
+      setSuspendTarget(null);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -56,14 +104,18 @@ export default function AdminOverviewPage() {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <Card key={stat.label}>
-            <CardContent>
-              <p className="text-sm text-muted">{stat.label}</p>
-              <p className="mt-1 text-2xl font-bold text-foreground">{stat.value}</p>
-            </CardContent>
-          </Card>
-        ))}
+        {!data ? (
+          <p className="col-span-full text-sm text-muted">{loadError ? "Gagal memuat statistik." : "Memuat..."}</p>
+        ) : (
+          stats.map((stat) => (
+            <Card key={stat.label}>
+              <CardContent>
+                <p className="text-sm text-muted">{stat.label}</p>
+                <p className="mt-1 text-2xl font-bold text-foreground">{stat.value}</p>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
 
       <div>
@@ -95,49 +147,58 @@ export default function AdminOverviewPage() {
           </Link>
         </CardHeader>
         <CardContent className="p-0">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-border text-xs uppercase text-muted">
-              <tr>
-                <th className="px-5 py-3 font-medium">Nama</th>
-                <th className="px-5 py-3 font-medium">Email</th>
-                <th className="px-5 py-3 font-medium">Kredit</th>
-                <th className="px-5 py-3 font-medium">Status</th>
-                <th className="px-5 py-3 font-medium" />
-              </tr>
-            </thead>
-            <tbody>
-              {recentUsers.map((user) => (
-                <tr key={user.id} className="border-b border-border last:border-0">
-                  <td className="px-5 py-3 font-medium text-foreground">{user.name}</td>
-                  <td className="px-5 py-3 text-muted">{user.email}</td>
-                  <td className="px-5 py-3 text-muted">{user.credit}</td>
-                  <td className="px-5 py-3">
-                    <Badge variant={statusVariant[user.status]}>{user.status}</Badge>
-                  </td>
-                  <td className="px-5 py-3 text-right">
-                    {user.status === "Aktif" && (
-                      <button
-                        onClick={() => setSuspendTarget(user.id)}
-                        className="rounded-md p-1.5 text-muted hover:bg-danger-soft hover:text-danger"
-                        aria-label="Suspend pengguna"
-                      >
-                        <Ban className="h-4 w-4" />
-                      </button>
-                    )}
-                  </td>
+          {!data ? (
+            <p className="p-5 text-sm text-muted">{loadError ? "Gagal memuat pengguna." : "Memuat..."}</p>
+          ) : data.recentUsers.length === 0 ? (
+            <p className="p-5 text-sm text-muted">Belum ada pengguna terdaftar.</p>
+          ) : (
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-border text-xs uppercase text-muted">
+                <tr>
+                  <th className="px-5 py-3 font-medium">Nama</th>
+                  <th className="px-5 py-3 font-medium">Email</th>
+                  <th className="px-5 py-3 font-medium">Kredit</th>
+                  <th className="px-5 py-3 font-medium">Status</th>
+                  <th className="px-5 py-3 font-medium" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {data.recentUsers.map((user) => (
+                  <tr key={user.id} className="border-b border-border last:border-0">
+                    <td className="px-5 py-3 font-medium text-foreground">{user.name}</td>
+                    <td className="px-5 py-3 text-muted">{user.email}</td>
+                    <td className="px-5 py-3 text-muted">{idNumber.format(user.creditBalance)}</td>
+                    <td className="px-5 py-3">
+                      <Badge variant={user.status === "ACTIVE" ? "success" : "danger"}>
+                        {user.status === "ACTIVE" ? "Aktif" : "Suspend"}
+                      </Badge>
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      {user.status === "ACTIVE" && user.id !== session?.user?.id && (
+                        <button
+                          onClick={() => setSuspendTarget(user)}
+                          className="rounded-md p-1.5 text-muted hover:bg-danger-soft hover:text-danger"
+                          aria-label="Suspend pengguna"
+                        >
+                          <Ban className="h-4 w-4" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </CardContent>
       </Card>
 
       <ConfirmDialog
         open={suspendTarget !== null}
         onClose={() => setSuspendTarget(null)}
-        onConfirm={() => setSuspendTarget(null)}
+        onConfirm={confirmSuspend}
+        isLoading={suspending}
         title="Suspend Pengguna"
-        description="Pengguna yang di-suspend tidak akan bisa mengakses fitur AI hingga diaktifkan kembali. Lanjutkan?"
+        description={`Pengguna "${suspendTarget?.name}" tidak akan bisa mengakses fitur AI hingga diaktifkan kembali. Lanjutkan?`}
         confirmLabel="Suspend"
         variant="danger"
       />

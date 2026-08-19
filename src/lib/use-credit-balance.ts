@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 
@@ -9,6 +9,7 @@ export function useLiveCreditBalance() {
   const pathname = usePathname();
   const userId = session?.user?.id;
   const currentBalance = session?.user.creditBalance;
+  const [totalPurchasedCredits, setTotalPurchasedCredits] = useState(0);
 
   const updateRef = useRef(update);
   const balanceRef = useRef(currentBalance);
@@ -29,6 +30,7 @@ export function useLiveCreditBalance() {
       if (!cancelled && data.creditBalance !== balanceRef.current) {
         await updateRef.current({ creditBalance: data.creditBalance });
       }
+      if (!cancelled) setTotalPurchasedCredits(data.totalPurchasedCredits ?? 0);
     }
 
     sync();
@@ -43,5 +45,5 @@ export function useLiveCreditBalance() {
     };
   }, [userId, pathname]);
 
-  return currentBalance ?? 0;
+  return { balance: currentBalance ?? 0, totalPurchasedCredits };
 }

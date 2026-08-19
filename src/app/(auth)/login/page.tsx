@@ -22,6 +22,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const suspended = searchParams.get("suspended") === "1";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -58,6 +59,11 @@ function LoginForm() {
         <CardContent>
           <h1 className="text-lg font-semibold text-foreground">Masuk ke Akun Anda</h1>
           <p className="mt-1 text-sm text-muted">Kelola kebutuhan marketing Anda dengan AI.</p>
+          {suspended && (
+            <p className="mt-4 rounded-lg border border-danger/20 bg-danger-soft px-3 py-2 text-sm text-danger">
+              Akun Anda telah dinonaktifkan. Hubungi admin untuk informasi lebih lanjut.
+            </p>
+          )}
 
           <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
             <Input

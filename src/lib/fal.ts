@@ -21,7 +21,20 @@ async function extractErrorDetail(res: Response): Promise<{ detail: string; isBi
   let detail = body;
   try {
     const parsed = JSON.parse(body);
-    if (typeof parsed?.detail === "string") detail = parsed.detail;
+    if (typeof parsed?.detail === "string") {
+      detail = parsed.detail;
+    } else if (Array.isArray(parsed?.detail)) {
+      // fal.ai validation errors come back as FastAPI-style [{ loc, msg, type }, ...]
+      // instead of a plain string — pull just the human-readable messages out.
+      const messages = parsed.detail
+        .map((item: unknown) =>
+          typeof item === "object" && item !== null && "msg" in item ? String((item as { msg: unknown }).msg) : null
+        )
+        .filter((msg: string | null): msg is string => Boolean(msg));
+      if (messages.length > 0) detail = messages.join(" ");
+    } else if (typeof parsed?.error === "string") {
+      detail = parsed.error;
+    }
   } catch {
     // body wasn't JSON, use the raw text
   }
@@ -89,16 +102,21 @@ export async function submitVideoJob({
   prompt,
   imageUrl,
   duration,
+  negativePrompt,
 }: {
   prompt: string;
   imageUrl: string;
   duration: "5" | "10";
+  negativePrompt?: string;
 }): Promise<FalJobHandle> {
   return submitFalJob(FAL_VIDEO_SLUG, {
     prompt,
     start_image_url: imageUrl,
     duration,
     generate_audio: true,
+    // Falls back to Kling's own default ("blur, distort, and low quality")
+    // when left empty rather than sending an empty string override.
+    ...(negativePrompt ? { negative_prompt: negativePrompt } : {}),
   });
 }
 
@@ -140,17 +158,35 @@ export async function checkFalJobStatus({
 
   if (!res.ok) {
     const { detail, isBilling } = await extractErrorDetail(res);
-    return {
-      state: "ERROR",
-      message: isBilling
-        ? `Akun fal.ai kehabisan saldo/kuota. Silakan top up di fal.ai/dashboard/billing. (${detail})`
-        : `fal.ai status gagal (${res.status}): ${detail}`,
-    };
+    if (isBilling) {
+      return {
+        state: "ERROR",
+        message: `Akun fal.ai kehabisan saldo/kuota. Silakan top up di fal.ai/dashboard/billing. (${detail})`,
+      };
+    }
+    // Rate-limit/server-side hiccups on fal.ai's own status endpoint don't mean
+    // the underlying job failed — throw so the caller treats it the same as a
+    // network blip (leave PENDING/PROCESSING, retry on the next poll) instead
+    // of prematurely refunding a job that may still complete just fine.
+    if (res.status === 429 || res.status >= 500) {
+      throw new Error(`fal.ai status transient error (${res.status}): ${detail}`);
+    }
+    return { state: "ERROR", message: `fal.ai status gagal (${res.status}): ${detail}` };
   }
 
   const data = await res.json();
   if (data.status === "COMPLETED") {
-    if (data.error) return { state: "ERROR", message: String(data.error) };
+    if (data.error) {
+      // fal.ai sometimes reports this when its GPU pool is momentarily full — its
+      // own queue keeps retrying in the background and can still succeed several
+      // minutes later (observed: succeeded ~30min after this exact message first
+      // appeared). Treat it as still-in-progress rather than a terminal failure,
+      // so we don't refund+abandon a job fal.ai hasn't actually given up on yet.
+      if (/failed to acquire runner/i.test(String(data.error))) {
+        return { state: "IN_PROGRESS" };
+      }
+      return { state: "ERROR", message: String(data.error) };
+    }
     return { state: "COMPLETED" };
   }
   if (data.status === "IN_QUEUE" || data.status === "IN_PROGRESS") {

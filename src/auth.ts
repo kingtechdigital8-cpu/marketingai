@@ -24,6 +24,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const isValid = await bcrypt.compare(password, user.passwordHash);
         if (!isValid) return null;
 
+        // Same generic "wrong email/password" outcome as an actual bad
+        // password (see login page) — deliberately not a distinct error,
+        // so this never leaks account existence/status to whoever's typing.
+        // Already-issued sessions are caught separately, per-request, by
+        // requireUser()'s own DB check (see api-auth.ts) — this only stops
+        // a NEW login.
+        if (user.status === "SUSPENDED") return null;
+
         return {
           id: user.id,
           name: user.name,
@@ -44,12 +52,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (trigger === "update" && session?.creditBalance !== undefined) {
         token.creditBalance = session.creditBalance as number;
       }
+      if (trigger === "update" && session?.name !== undefined) {
+        token.name = session.name as string;
+      }
       return token;
     },
     session({ session, token }) {
       session.user.id = token.id as string;
       session.user.role = token.role as "USER" | "ADMIN";
       session.user.creditBalance = token.creditBalance as number;
+      if (token.name) session.user.name = token.name;
       return session;
     },
   },

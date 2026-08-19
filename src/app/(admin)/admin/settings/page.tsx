@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Settings, Check, Wallet } from "lucide-react";
+import { Settings, Check, Wallet, Radio, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
@@ -14,8 +14,12 @@ interface SiteSettings {
   "site.maintenanceMode": string;
   "tokopay.merchant_id": string;
   "tokopay.secret_key": string;
-  "tokopay.channel": string;
   "tokopay.enabled": string;
+  "tiktok.euler_api_key": string;
+  "tiktok.tiktool_api_key": string;
+  "tiktok.sign_provider": string;
+  "tiktok.enabled": string;
+  "tiktok.tts_provider": string;
 }
 
 export default function AdminSettingsPage() {
@@ -34,8 +38,12 @@ export default function AdminSettingsPage() {
           "site.maintenanceMode": "false",
           "tokopay.merchant_id": "",
           "tokopay.secret_key": "",
-          "tokopay.channel": "QRIS",
           "tokopay.enabled": "false",
+          "tiktok.euler_api_key": "",
+          "tiktok.tiktool_api_key": "",
+          "tiktok.sign_provider": "EULERSTREAM",
+          "tiktok.enabled": "false",
+          "tiktok.tts_provider": "elevenlabs",
           ...data.settings,
         })
       );
@@ -130,25 +138,6 @@ export default function AdminSettingsPage() {
               value={settings["tokopay.secret_key"]}
               onChange={(e) => setSettings({ ...settings, "tokopay.secret_key": e.target.value })}
             />
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-foreground">Metode Pembayaran</label>
-              <select
-                value={settings["tokopay.channel"]}
-                onChange={(e) => setSettings({ ...settings, "tokopay.channel": e.target.value })}
-                className="h-10 rounded-lg border border-border bg-surface px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand"
-              >
-                <option value="QRIS">QRIS (semua e-wallet & m-banking)</option>
-                <option value="QRISREALTIME">QRIS Realtime</option>
-                <option value="GOPAY">GoPay</option>
-                <option value="DANA">DANA</option>
-                <option value="SHOPEEPAY">ShopeePay</option>
-                <option value="LINKAJA">LinkAja</option>
-                <option value="BRIVA">BRI Virtual Account</option>
-                <option value="BCAVA">BCA Virtual Account</option>
-                <option value="BNIVA">BNI Virtual Account</option>
-                <option value="MANDIRIVA">Mandiri Virtual Account</option>
-              </select>
-            </div>
             <label className="flex items-center gap-2 text-sm text-muted">
               <input
                 type="checkbox"
@@ -164,6 +153,83 @@ export default function AdminSettingsPage() {
                 {typeof window !== "undefined" ? window.location.origin : ""}/api/topup/callback
               </code>
             </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Radio className="h-4 w-4 text-brand" />
+            Live TikTok (AI Comment Reader)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs text-warning">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <p>
+                Fitur ini membaca (dan bila diaktifkan pengguna, mengirim balasan ke) live chat TikTok lewat cara
+                tidak resmi (reverse-engineered), bukan API resmi TikTok. Bisa berhenti bekerja sewaktu-waktu jika
+                TikTok mengubah sistemnya, dan berpotensi melanggar Ketentuan Layanan TikTok.
+              </p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">Sign Provider</label>
+              <select
+                value={settings["tiktok.sign_provider"]}
+                onChange={(e) => setSettings({ ...settings, "tiktok.sign_provider": e.target.value })}
+                className="h-10 rounded-lg border border-border bg-surface px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand"
+              >
+                <option value="EULERSTREAM">Euler Stream</option>
+                <option value="TIKTOOL">TikTool</option>
+              </select>
+              <p className="text-xs text-muted">
+                Provider yang menandatangani koneksi ke live TikTok. Isi API key kedua provider di bawah supaya bisa
+                langsung dipindah kalau salah satunya bermasalah — cukup ganti pilihan ini, tanpa perlu isi ulang key.
+                Catatan: kirim otomatis balasan ke live chat hanya didukung oleh Euler Stream, bukan TikTool.
+              </p>
+            </div>
+            <Input
+              label="Euler Stream API Key"
+              type="password"
+              value={settings["tiktok.euler_api_key"]}
+              onChange={(e) => setSettings({ ...settings, "tiktok.euler_api_key": e.target.value })}
+              placeholder="Dari eulerstream.com"
+            />
+            <Input
+              label="TikTool API Key"
+              type="password"
+              value={settings["tiktok.tiktool_api_key"]}
+              onChange={(e) => setSettings({ ...settings, "tiktok.tiktool_api_key": e.target.value })}
+              placeholder="Dari tik.tools"
+            />
+            <label className="flex items-center gap-2 text-sm text-muted">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-border"
+                checked={settings["tiktok.enabled"] === "true"}
+                onChange={(e) => setSettings({ ...settings, "tiktok.enabled": String(e.target.checked) })}
+              />
+              Aktifkan fitur Live TikTok untuk semua pengguna
+            </label>
+            <div className="flex flex-col gap-1.5 border-t border-border pt-4">
+              <label className="text-sm font-medium text-foreground">Provider Suara (TTS)</label>
+              <select
+                value={settings["tiktok.tts_provider"]}
+                onChange={(e) => setSettings({ ...settings, "tiktok.tts_provider": e.target.value })}
+                className="h-10 rounded-lg border border-border bg-surface px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand"
+              >
+                <option value="elevenlabs">ElevenLabs</option>
+                <option value="google-tts">Google Cloud (Chirp3 HD)</option>
+              </select>
+              <p className="text-xs text-muted">
+                Berlaku untuk semua pengguna sekaligus — bukan pilihan per pengguna. Google Cloud Chirp3 HD jauh
+                lebih murah per karakter (cocok untuk volume balasan tinggi), tapi timing bibir (lip-sync) sedikit
+                lebih kasar (per kata, bukan per huruf) dibanding ElevenLabs. Pastikan provider yang dipilih sudah
+                dikonfigurasi &amp; diaktifkan di Provider AI sebelum mengganti ini.
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -33,6 +33,10 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# YouTube session cookies (see YOUTUBE_COOKIES_PATH in .env) — never commit,
+# this is a real logged-in account session.
+/youtube-cookies.txt
+
 # vercel
 .vercel
 

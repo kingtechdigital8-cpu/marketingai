@@ -89,6 +89,31 @@ async function main() {
       markupPercent: 20,
     },
     {
+      name: "ElevenLabs (Suara Live TikTok)",
+      slug: "elevenlabs-tts",
+      category: "audio",
+      model: "eleven_multilingual_v2",
+      // $0.0002/character (Starter tier, $6/30k credits) — billed per character
+      // actually generated (multiplied by reply length in the route), not a
+      // flat per-reply estimate, so cost always matches real usage.
+      baseCost: 0.004,
+      markupPercent: 20,
+    },
+    {
+      name: "Google Cloud TTS (Chirp3 HD — Suara Live TikTok)",
+      slug: "google-tts-chirp3",
+      category: "audio",
+      model: "Chirp3-HD",
+      // ~$30/1M characters (~6-7x cheaper than ElevenLabs' $0.0002/char) —
+      // added as a cheaper alternative for users where ElevenLabs' cost is
+      // the bottleneck. API Key field holds a full Google Cloud service-
+      // account JSON key (not a short API key string) — see google-tts.ts
+      // for why. Disabled by default; an admin must paste real credentials
+      // and enable it before it's selectable in a user's Live TikTok config.
+      baseCost: 0.0006,
+      markupPercent: 20,
+    },
+    {
       name: "Serper (Data Kompetitor)",
       slug: "serper-search",
       category: "search",
@@ -96,6 +121,27 @@ async function main() {
       baseUrl: "https://google.serper.dev",
       // $1/1,000 queries at the starter tier
       baseCost: 0.02,
+      markupPercent: 20,
+    },
+    {
+      name: "OpenAI (Transkripsi Video)",
+      slug: "openai-whisper",
+      category: "audio",
+      model: "whisper-1",
+      // $0.006/minute = $0.0001/second — billed per second of actual source
+      // video duration (multiplied by duration in the route).
+      baseCost: 0.002,
+      markupPercent: 20,
+    },
+    {
+      name: "Auto Clip (Proses Video)",
+      slug: "video-clip-processing",
+      category: "video",
+      model: null,
+      // Flat per-clip fee covering ffmpeg cut/overlay/encode compute + R2
+      // bandwidth — unlike the other providers this has no external invoice to
+      // key off of, so it's an admin-tunable estimate rather than a real cost.
+      baseCost: 0.5,
       markupPercent: 20,
     },
   ];

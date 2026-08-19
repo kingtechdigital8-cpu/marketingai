@@ -2,12 +2,12 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/api-auth";
-import { createOrder } from "@/lib/tokopay";
+import { createOrder, isAllowedChannel } from "@/lib/tokopay";
 import { idrToCredits, getCreditIdrValue } from "@/lib/exchange-rate";
 import { ProviderNotConfiguredError } from "@/lib/errors";
 import { ensureDbConnection } from "@/lib/with-db-retry";
 
-const MIN_TOPUP_IDR = 10000;
+const MIN_TOPUP_IDR = 100000;
 
 export async function POST(request: Request) {
   const { session, error } = await requireUser();
@@ -15,12 +15,16 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => null);
   const amountIdr = Number(body?.amountIdr);
+  const channel = typeof body?.channel === "string" ? body.channel : "";
 
   if (!Number.isFinite(amountIdr) || amountIdr < MIN_TOPUP_IDR) {
     return NextResponse.json(
       { error: `Nominal top up minimal Rp${MIN_TOPUP_IDR.toLocaleString("id-ID")}.` },
       { status: 400 }
     );
+  }
+  if (!isAllowedChannel(channel)) {
+    return NextResponse.json({ error: "Pilih metode pembayaran terlebih dahulu." }, { status: 400 });
   }
 
   try {
@@ -30,7 +34,7 @@ export async function POST(request: Request) {
     }
 
     const refId = `topup-${randomUUID()}`;
-    const order = await createOrder({ refId, amountIdr });
+    const order = await createOrder({ refId, amountIdr, channel });
 
     const { usdIdrRate } = await getCreditIdrValue();
 
@@ -42,12 +46,13 @@ export async function POST(request: Request) {
         trxId: order.trxId,
         amountIdr,
         credits,
-        channel: "QRIS",
+        channel,
         status: "PENDING",
         payUrl: order.payUrl,
         qrString: order.qrString,
         qrLink: order.qrLink,
         paymentGuide: order.paymentGuide,
+        vaNumber: order.vaNumber,
       },
     });
 
@@ -57,6 +62,8 @@ export async function POST(request: Request) {
       qrString: topup.qrString,
       qrLink: topup.qrLink,
       paymentGuide: topup.paymentGuide,
+      vaNumber: topup.vaNumber,
+      channel: topup.channel,
       amountIdr: topup.amountIdr,
       credits: topup.credits,
       usdIdrRate,

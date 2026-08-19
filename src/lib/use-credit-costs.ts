@@ -9,6 +9,11 @@ export interface CreditCosts {
   IMAGE_GENERATION: number;
   VIDEO_GENERATION: number;
   VOICE_DUB: number;
+  TIKTOK_LIVE_REPLY: number;
+  VIDEO_CLIP_ANALYSIS: number;
+  VIDEO_CLIP_PER_CLIP_BASE: number;
+  VIDEO_CLIP_HEADLINE_ADDON: number;
+  VIDEO_CLIP_CAPTION_ADDON: number;
 }
 
 const FALLBACK: CreditCosts = {
@@ -18,6 +23,11 @@ const FALLBACK: CreditCosts = {
   IMAGE_GENERATION: 0,
   VIDEO_GENERATION: 0,
   VOICE_DUB: 0,
+  TIKTOK_LIVE_REPLY: 0,
+  VIDEO_CLIP_ANALYSIS: 0,
+  VIDEO_CLIP_PER_CLIP_BASE: 0,
+  VIDEO_CLIP_HEADLINE_ADDON: 0,
+  VIDEO_CLIP_CAPTION_ADDON: 0,
 };
 
 /**

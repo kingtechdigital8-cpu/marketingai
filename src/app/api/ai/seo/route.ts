@@ -199,13 +199,14 @@ async function handleArticle(
     messages: [
       {
         role: "system",
-        content: "Anda adalah penulis konten SEO profesional multibahasa.",
+        content:
+          "Anda adalah penulis konten SEO profesional multibahasa. Jangan pernah menggunakan simbol em dash (—) atau en dash (–) di mana pun dalam tulisan Anda. Jika perlu menyisipkan jeda atau keterangan tambahan, gunakan koma, titik, atau tanda hubung biasa (-) sebagai gantinya.",
       },
       {
         role: "user",
         content: `Tulis artikel SEO dalam bahasa ${languageLabel} tentang "${topic}".${
           keyword ? ` Optimalkan untuk kata kunci utama: "${keyword}".` : ""
-        } Gaya penulisan: ${toneLabel}. Panjang artikel: ${LENGTH_LABEL[lengthKey]}. Gunakan format Markdown dengan judul, sub-judul, dan paragraf yang terstruktur rapi.`,
+        } Gaya penulisan: ${toneLabel}. Panjang artikel: ${LENGTH_LABEL[lengthKey]}. Gunakan format Markdown dengan judul, sub-judul, dan paragraf yang terstruktur rapi. Jangan gunakan simbol em dash (—) sama sekali di seluruh artikel.`,
       },
     ],
   });

@@ -9,7 +9,7 @@ export async function GET() {
   const generations = await prisma.generation.findMany({
     where: {
       userId: session.user.id,
-      type: { in: ["IMAGE_GENERATION", "VIDEO_GENERATION", "VOICE_DUB"] },
+      type: { in: ["IMAGE_GENERATION", "VIDEO_GENERATION", "VOICE_DUB", "AVATAR_GENERATION", "VIDEO_CLIP"] },
       status: { not: "FAILED" },
     },
     orderBy: { createdAt: "desc" },

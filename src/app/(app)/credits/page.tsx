@@ -8,6 +8,8 @@ import { Button, buttonVariants } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
+import { CopyButton } from "@/components/ui/CopyButton";
+import { PAYMENT_CHANNELS, type PaymentChannelCode } from "@/lib/payment-channels";
 import { cn } from "@/lib/utils";
 
 type TopupStatus = "PENDING" | "SUCCESS" | "FAILED" | "EXPIRED";
@@ -26,12 +28,15 @@ interface ActiveTopup {
   payUrl: string;
   qrLink: string | null;
   paymentGuide: string | null;
+  vaNumber: string | null;
+  channel: string;
   amountIdr: number;
   credits: number;
   status: TopupStatus;
 }
 
-const PRESETS_IDR = [50000, 100000, 250000, 500000];
+const MIN_TOPUP_IDR = 100000;
+const PRESETS_IDR = [100000, 250000, 500000, 1000000];
 
 const STATUS_BADGE: Record<TopupStatus, { label: string; variant: "neutral" | "success" | "danger" | "warning" }> = {
   PENDING: { label: "Menunggu Pembayaran", variant: "warning" },
@@ -48,6 +53,7 @@ export default function CreditsPage() {
   const { data: session, update } = useSession();
   const [amountIdr, setAmountIdr] = useState<number>(PRESETS_IDR[1]);
   const [customAmount, setCustomAmount] = useState("");
+  const [selectedChannel, setSelectedChannel] = useState<PaymentChannelCode>("QRIS_CUSTOM");
   const [previewCredits, setPreviewCredits] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +80,7 @@ export default function CreditsPage() {
 
   useEffect(loadHistory, []);
 
-  const amountIsValid = Number.isFinite(effectiveAmount) && effectiveAmount >= 10000;
+  const amountIsValid = Number.isFinite(effectiveAmount) && effectiveAmount >= MIN_TOPUP_IDR;
 
   useEffect(() => {
     if (!amountIsValid) return;
@@ -112,8 +118,8 @@ export default function CreditsPage() {
 
   async function handleSubmit() {
     setError(null);
-    if (!Number.isFinite(effectiveAmount) || effectiveAmount < 10000) {
-      setError("Nominal top up minimal Rp10.000.");
+    if (!Number.isFinite(effectiveAmount) || effectiveAmount < MIN_TOPUP_IDR) {
+      setError(`Nominal top up minimal ${formatIdr(MIN_TOPUP_IDR)}.`);
       return;
     }
 
@@ -122,7 +128,7 @@ export default function CreditsPage() {
       const res = await fetch("/api/topup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amountIdr: effectiveAmount }),
+        body: JSON.stringify({ amountIdr: effectiveAmount, channel: selectedChannel }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -134,6 +140,8 @@ export default function CreditsPage() {
         payUrl: data.payUrl,
         qrLink: data.qrLink ?? null,
         paymentGuide: data.paymentGuide ?? null,
+        vaNumber: data.vaNumber ?? null,
+        channel: data.channel,
         amountIdr: data.amountIdr,
         credits: data.credits,
         status: "PENDING",
@@ -154,6 +162,8 @@ export default function CreditsPage() {
       payUrl: data.payUrl,
       qrLink: data.qrLink ?? null,
       paymentGuide: data.paymentGuide ?? null,
+      vaNumber: data.vaNumber ?? null,
+      channel: data.channel,
       amountIdr: data.amountIdr,
       credits: data.credits,
       status: data.status,
@@ -204,13 +214,38 @@ export default function CreditsPage() {
               <label className="text-sm font-medium text-foreground">Atau masukkan nominal sendiri (Rp)</label>
               <input
                 type="number"
-                min={10000}
+                min={MIN_TOPUP_IDR}
                 step={1000}
-                placeholder="mis. 75000"
+                placeholder="mis. 150000"
                 value={customAmount}
                 onChange={(e) => setCustomAmount(e.target.value)}
                 className="h-10 rounded-lg border border-border bg-surface px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand"
               />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">Metode Pembayaran</label>
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                {PAYMENT_CHANNELS.map((method) => (
+                  <button
+                    key={method.code}
+                    type="button"
+                    onClick={() => setSelectedChannel(method.code)}
+                    className={cn(
+                      "flex flex-col items-center gap-1.5 rounded-lg border p-2.5 text-center transition-colors",
+                      selectedChannel === method.code
+                        ? "border-brand bg-brand-soft"
+                        : "border-border hover:border-border-strong"
+                    )}
+                  >
+                    <div className="flex h-10 w-full items-center justify-center rounded-md border border-white bg-white p-1.5">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- external payment method logo */}
+                      <img src={method.logo} alt={method.label} className="h-full w-auto max-w-full object-contain" />
+                    </div>
+                    <p className="text-[11px] leading-tight text-muted">{method.label}</p>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm">
@@ -254,6 +289,16 @@ export default function CreditsPage() {
                         <p className="text-xs text-muted">
                           Scan kode QRIS di atas pakai aplikasi e-wallet atau m-banking Anda.
                         </p>
+                      </div>
+                    ) : activeTopup.vaNumber ? (
+                      <div className="flex flex-col items-start gap-2">
+                        <p className="text-xs text-muted">Transfer ke nomor Virtual Account berikut:</p>
+                        <div className="flex items-center gap-2 rounded-lg border border-border bg-surface-2 px-3 py-2">
+                          <span className="font-mono text-base font-semibold text-foreground">
+                            {activeTopup.vaNumber}
+                          </span>
+                          <CopyButton text={activeTopup.vaNumber} />
+                        </div>
                       </div>
                     ) : activeTopup.payUrl ? (
                       <div className="flex flex-col items-start gap-2">
@@ -317,37 +362,61 @@ export default function CreditsPage() {
                 <EmptyState icon={History} title="Belum ada riwayat" />
               </div>
             ) : (
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-border text-xs uppercase text-muted">
-                  <tr>
-                    <th className="px-5 py-3 font-medium">Nominal</th>
-                    <th className="px-5 py-3 font-medium">Kredit</th>
-                    <th className="px-5 py-3 font-medium">Status</th>
-                    <th className="px-5 py-3 font-medium" />
-                  </tr>
-                </thead>
-                <tbody>
+              <>
+                <div className="hidden overflow-x-auto sm:block">
+                  <table className="w-full text-left text-sm">
+                    <thead className="border-b border-border text-xs uppercase text-muted">
+                      <tr>
+                        <th className="px-5 py-3 font-medium">Nominal</th>
+                        <th className="px-5 py-3 font-medium">Kredit</th>
+                        <th className="px-5 py-3 font-medium">Status</th>
+                        <th className="px-5 py-3 font-medium" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {history.map((item) => (
+                        <tr key={item.id} className="border-b border-border last:border-0">
+                          <td className="px-5 py-3 text-foreground">{formatIdr(item.amountIdr)}</td>
+                          <td className="px-5 py-3 text-muted">{item.credits.toLocaleString("id-ID")}</td>
+                          <td className="px-5 py-3">
+                            <Badge variant={STATUS_BADGE[item.status].variant}>{STATUS_BADGE[item.status].label}</Badge>
+                          </td>
+                          <td className="px-5 py-3 text-right">
+                            {item.status === "PENDING" && (
+                              <button
+                                onClick={() => resumeTopup(item.refId)}
+                                className="text-sm font-medium text-brand hover:underline"
+                              >
+                                Lanjutkan
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="divide-y divide-border sm:hidden">
                   {history.map((item) => (
-                    <tr key={item.id} className="border-b border-border last:border-0">
-                      <td className="px-5 py-3 text-foreground">{formatIdr(item.amountIdr)}</td>
-                      <td className="px-5 py-3 text-muted">{item.credits.toLocaleString("id-ID")}</td>
-                      <td className="px-5 py-3">
-                        <Badge variant={STATUS_BADGE[item.status].variant}>{STATUS_BADGE[item.status].label}</Badge>
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        {item.status === "PENDING" && (
-                          <button
-                            onClick={() => resumeTopup(item.refId)}
-                            className="text-sm font-medium text-brand hover:underline"
-                          >
-                            Lanjutkan
-                          </button>
-                        )}
-                      </td>
-                    </tr>
+                    <div key={item.id} className="flex items-center gap-3 px-4 py-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-foreground">{formatIdr(item.amountIdr)}</p>
+                        <p className="mt-0.5 truncate text-xs text-muted">{item.credits.toLocaleString("id-ID")} kredit</p>
+                      </div>
+                      <Badge variant={STATUS_BADGE[item.status].variant}>{STATUS_BADGE[item.status].label}</Badge>
+                      {item.status === "PENDING" && (
+                        <button
+                          onClick={() => resumeTopup(item.refId)}
+                          className="shrink-0 text-xs font-medium text-brand hover:underline"
+                        >
+                          Lanjutkan
+                        </button>
+                      )}
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>

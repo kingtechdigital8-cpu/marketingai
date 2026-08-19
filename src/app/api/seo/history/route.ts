@@ -18,6 +18,7 @@ export async function GET() {
       type: true,
       title: true,
       content: true,
+      status: true,
       creditCost: true,
       createdAt: true,
     },

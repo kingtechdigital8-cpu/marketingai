@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE `credittransaction` MODIFY `type` ENUM('TOPUP', 'USAGE', 'REFUND', 'BONUS', 'ADJUSTMENT') NOT NULL;
+
+-- AlterTable
+ALTER TABLE `user` ADD COLUMN `status` ENUM('ACTIVE', 'SUSPENDED') NOT NULL DEFAULT 'ACTIVE';
+

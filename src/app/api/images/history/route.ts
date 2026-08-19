@@ -13,6 +13,7 @@ export async function GET() {
     select: {
       id: true,
       title: true,
+      status: true,
       creditCost: true,
       createdAt: true,
     },

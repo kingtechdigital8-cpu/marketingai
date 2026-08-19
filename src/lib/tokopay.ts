@@ -1,14 +1,16 @@
 import { createHash } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { ProviderNotConfiguredError } from "@/lib/errors";
+import { type PaymentChannelCode } from "@/lib/payment-channels";
+
+export { PAYMENT_CHANNELS, isAllowedChannel, type PaymentChannelCode } from "@/lib/payment-channels";
 
 const API_BASE = "https://api.tokopay.id/v1";
-const SETTING_KEYS = ["tokopay.merchant_id", "tokopay.secret_key", "tokopay.channel", "tokopay.enabled"];
+const SETTING_KEYS = ["tokopay.merchant_id", "tokopay.secret_key", "tokopay.enabled"];
 
 interface TokopayConfig {
   merchantId: string;
   secretKey: string;
-  channel: string;
 }
 
 async function getTokopayConfig(): Promise<TokopayConfig> {
@@ -17,16 +19,15 @@ async function getTokopayConfig(): Promise<TokopayConfig> {
 
   const merchantId = settings["tokopay.merchant_id"];
   const secretKey = settings["tokopay.secret_key"];
-  const channel = settings["tokopay.channel"] || "QRIS";
   const enabled = settings["tokopay.enabled"] === "true";
 
   if (!enabled || !merchantId || !secretKey) {
     throw new ProviderNotConfiguredError(
-      "Payment gateway Tokopay belum dikonfigurasi atau nonaktif. Hubungi admin untuk mengaktifkannya di Pengaturan."
+      "Payment gateway belum dikonfigurasi atau nonaktif. Hubungi admin untuk mengaktifkannya di Pengaturan."
     );
   }
 
-  return { merchantId, secretKey, channel };
+  return { merchantId, secretKey };
 }
 
 export function signTokopay(merchantId: string, secretKey: string, refId: string): string {
@@ -39,17 +40,20 @@ export interface TokopayOrder {
   qrString: string | null;
   qrLink: string | null;
   paymentGuide: string | null;
+  vaNumber: string | null;
   totalBayar: number;
 }
 
 export async function createOrder({
   refId,
   amountIdr,
+  channel,
 }: {
   refId: string;
   amountIdr: number;
+  channel: PaymentChannelCode;
 }): Promise<TokopayOrder> {
-  const { merchantId, secretKey, channel } = await getTokopayConfig();
+  const { merchantId, secretKey } = await getTokopayConfig();
 
   // Tokopay's "simple order" endpoint — a plain GET with query params, no JSON
   // body. The "advanced" JSON-body endpoint kept rejecting well-formed JSON
@@ -86,6 +90,7 @@ export async function createOrder({
     qrString: (orderData.qr_string as string) ?? null,
     qrLink: (orderData.qr_link as string) ?? null,
     paymentGuide: (orderData.panduan_pembayaran as string) || null,
+    vaNumber: (orderData.nomor_va as string) ?? null,
     totalBayar: orderData.total_bayar as number,
   };
 }
