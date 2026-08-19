@@ -3,14 +3,15 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 
 const links = [
-  { label: "Fitur", href: "/" },
-  { label: "Harga", href: "/harga" },
+  { label: "Features", href: "/" },
+  { label: "Pricing", href: "/harga" },
 ];
 
 /** Shared by the desktop pill nav and the mobile dropdown — branches between a plain <a> (in-page hash) and next/link (a real route) since they need different navigation behavior. */
@@ -65,6 +66,8 @@ function NavLink({
 
 export function MarketingNavbar() {
   const pathname = usePathname();
+  const { status } = useSession();
+  const isAuthed = status === "authenticated";
   const [scrolled, setScrolled] = useState(false);
   const [hoveredHref, setHoveredHref] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -116,11 +119,16 @@ export function MarketingNavbar() {
           </nav>
 
           <div className="hidden items-center gap-1.5 sm:flex">
-            <Link href="/login" className={buttonVariants({ variant: "ghost", size: "sm" })}>
-              Masuk
-            </Link>
-            <Link href="/register" className={buttonVariants({ size: "sm", className: "pl-4 pr-3.5" })}>
-              Coba Gratis
+            {!isAuthed && (
+              <Link href="/login" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+                Masuk
+              </Link>
+            )}
+            <Link
+              href={isAuthed ? "/dashboard" : "/register"}
+              className={buttonVariants({ size: "sm", className: "pl-4 pr-3.5" })}
+            >
+              {isAuthed ? "Dashboard" : "Coba Gratis"}
             </Link>
           </div>
 
@@ -158,19 +166,21 @@ export function MarketingNavbar() {
                 ))}
               </nav>
               <div className="mt-3 flex flex-col gap-2 border-t border-border pt-3">
+                {!isAuthed && (
+                  <Link
+                    href="/login"
+                    onClick={() => setMobileOpen(false)}
+                    className={buttonVariants({ variant: "outline", className: "w-full" })}
+                  >
+                    Masuk
+                  </Link>
+                )}
                 <Link
-                  href="/login"
-                  onClick={() => setMobileOpen(false)}
-                  className={buttonVariants({ variant: "outline", className: "w-full" })}
-                >
-                  Masuk
-                </Link>
-                <Link
-                  href="/register"
+                  href={isAuthed ? "/dashboard" : "/register"}
                   onClick={() => setMobileOpen(false)}
                   className={buttonVariants({ className: "w-full" })}
                 >
-                  Coba Gratis
+                  {isAuthed ? "Dashboard" : "Coba Gratis"}
                 </Link>
               </div>
             </motion.div>
