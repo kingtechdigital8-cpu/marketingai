@@ -95,46 +95,67 @@ export async function getYoutubeInfo(url: string): Promise<YoutubeVideoInfo> {
 // handled with specific messages below) won't fix itself, so retrying it
 // would just waste time.
 const TRANSIENT_ERROR_PATTERN = /HTTP Error 403|HTTP Error 429|HTTP Error 5\d\d/i;
+// Fires when the primary selector below (separate video-only+audio-only
+// streams to merge) has nothing to match — observed in production when
+// cookies push yt-dlp onto a client extraction path (tv_downgraded, see the
+// rawArgs comment) whose format list is muxed-only. Retrying the SAME
+// selector would never succeed, so this instead jumps straight to the next
+// format strategy instead of burning retry attempts on it.
+const FORMAT_UNAVAILABLE_PATTERN = /Requested format is not available/i;
 const MAX_DOWNLOAD_ATTEMPTS = 3;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// "best" is a valid VideoQuality per ytdlp-nodejs's own types, but its
+// mergevideo quality map only actually defines 144p-2160p plus
+// "highest"/"lowest" — passing it there silently builds a broken
+// "undefined+ba" selector. "highest" maps to "bv*" (unrestricted best
+// video-only stream) merged with the best audio-only stream, which is what
+// we actually want at full quality — but needs those two separate streams to
+// exist. The plain "best" string is yt-dlp's own pre-merged/progressive
+// selector, tried second: it works even when only muxed formats are exposed
+// (see FORMAT_UNAVAILABLE_PATTERN above), just without control over which
+// container/quality gets picked.
+const FORMAT_ATTEMPTS: Array<{ filter: "mergevideo"; quality: "highest"; type: "mp4" } | "best"> = [
+  { filter: "mergevideo", quality: "highest", type: "mp4" },
+  "best",
+];
+
 /** Downloads to `<outputDir>/source.<ext>` and returns the exact resulting path (extension picked by yt-dlp). */
 export async function downloadYoutubeVideo(url: string, outputDir: string): Promise<string> {
+  const cookies = getYoutubeCookiesPath();
   let lastErr: unknown;
-  for (let attempt = 1; attempt <= MAX_DOWNLOAD_ATTEMPTS; attempt++) {
-    try {
-      const result = await ytdlp.downloadAsync(url, {
-        // "best" is a valid VideoQuality per ytdlp-nodejs's own types, but
-        // its mergevideo quality map only actually defines 144p-2160p plus
-        // "highest"/"lowest" — passing "best" silently builds a broken
-        // "undefined+ba" format selector and yt-dlp fails with "Requested
-        // format is not available". "highest" maps to "bv*" (unrestricted
-        // best video stream), which is what we actually want here.
-        format: { filter: "mergevideo", quality: "highest", type: "mp4" },
-        output: path.join(outputDir, "source.%(ext)s"),
-        cookies: getYoutubeCookiesPath(),
-        // With cookies present, yt-dlp prefers a client (tv_downgraded) that
-        // needs its own "n challenge" (URL descrambling) solved locally —
-        // without a JS runtime it can't get a usable format at all
-        // ("Only images are available for download"), even though the
-        // cookies themselves are valid. process.execPath (not a hardcoded
-        // path) is whichever Node binary is already running this app, so
-        // this works unchanged on the production server too.
-        rawArgs: ["--js-runtimes", `node:${process.execPath}`],
-      });
-      const filePath = result.filePaths[0];
-      if (!filePath) throw new Error("Gagal mengunduh video YouTube.");
-      return filePath;
-    } catch (err) {
-      lastErr = err;
-      const raw = err instanceof Error ? err.message : String(err);
-      const isTransient = TRANSIENT_ERROR_PATTERN.test(raw);
-      if (!isTransient || attempt === MAX_DOWNLOAD_ATTEMPTS) break;
-      console.error(`[youtube] download attempt ${attempt}/${MAX_DOWNLOAD_ATTEMPTS} failed transiently, retrying:`, err);
-      await sleep(attempt * 2000);
+
+  for (const format of FORMAT_ATTEMPTS) {
+    for (let attempt = 1; attempt <= MAX_DOWNLOAD_ATTEMPTS; attempt++) {
+      try {
+        const result = await ytdlp.downloadAsync(url, {
+          format,
+          output: path.join(outputDir, "source.%(ext)s"),
+          cookies,
+          // With cookies present, yt-dlp prefers a client (tv_downgraded) that
+          // needs its own "n challenge" (URL descrambling) solved locally —
+          // without a JS runtime it can't get a usable format at all
+          // ("Only images are available for download"), even though the
+          // cookies themselves are valid. process.execPath (not a hardcoded
+          // path) is whichever Node binary is already running this app, so
+          // this works unchanged on the production server too.
+          rawArgs: ["--js-runtimes", `node:${process.execPath}`],
+        });
+        const filePath = result.filePaths[0];
+        if (!filePath) throw new Error("Gagal mengunduh video YouTube.");
+        return filePath;
+      } catch (err) {
+        lastErr = err;
+        const raw = err instanceof Error ? err.message : String(err);
+        if (FORMAT_UNAVAILABLE_PATTERN.test(raw)) break;
+        const isTransient = TRANSIENT_ERROR_PATTERN.test(raw);
+        if (!isTransient || attempt === MAX_DOWNLOAD_ATTEMPTS) break;
+        console.error(`[youtube] download attempt ${attempt}/${MAX_DOWNLOAD_ATTEMPTS} failed transiently, retrying:`, err);
+        await sleep(attempt * 2000);
+      }
     }
   }
   // describeYoutubeDownloadError() below only keeps a translated, truncated
