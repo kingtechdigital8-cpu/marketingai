@@ -121,14 +121,14 @@ export function MarketingNavbar() {
           <div className="hidden items-center gap-1.5 sm:flex">
             {!isAuthed && (
               <Link href="/login" className={buttonVariants({ variant: "ghost", size: "sm" })}>
-                Masuk
+                Login
               </Link>
             )}
             <Link
               href={isAuthed ? "/dashboard" : "/register"}
               className={buttonVariants({ size: "sm", className: "pl-4 pr-3.5" })}
             >
-              {isAuthed ? "Dashboard" : "Coba Gratis"}
+              {isAuthed ? "Dashboard" : "Try Free!"}
             </Link>
           </div>
 
@@ -180,7 +180,7 @@ export function MarketingNavbar() {
                   onClick={() => setMobileOpen(false)}
                   className={buttonVariants({ className: "w-full" })}
                 >
-                  {isAuthed ? "Dashboard" : "Coba Gratis"}
+                  {isAuthed ? "Dashboard" : "Try Free!"}
                 </Link>
               </div>
             </motion.div>
