@@ -10,8 +10,12 @@ import type { FitMode } from "@/lib/video-clip-asset-options";
 
 const execFileAsync = promisify(execFile);
 
-const FFMPEG_BIN = ffmpegPath as string;
-const FFPROBE_BIN = ffprobeStatic.path;
+// Some ffmpeg-static Linux binaries ship without the drawtext filter
+// compiled in (see AGENTS.md-adjacent deploy notes) — FFMPEG_PATH/FFPROBE_PATH
+// let production point at a system-installed ffmpeg (e.g. `apt install ffmpeg`)
+// instead, without touching node_modules.
+const FFMPEG_BIN = process.env.FFMPEG_PATH || (ffmpegPath as string);
+const FFPROBE_BIN = process.env.FFPROBE_PATH || ffprobeStatic.path;
 const FONTS_DIR = path.join(process.cwd(), "public", "fonts");
 
 export type AspectRatio = "original" | "9:16" | "1:1";

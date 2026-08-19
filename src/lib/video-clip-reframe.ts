@@ -4,7 +4,7 @@ import path from "path";
 import ffmpegPath from "ffmpeg-static";
 
 const execFileAsync = promisify(execFile);
-const FFMPEG_BIN = ffmpegPath as string;
+const FFMPEG_BIN = process.env.FFMPEG_PATH || (ffmpegPath as string);
 
 // Sampling every 1.5s keeps the per-clip detection pass fast (a few seconds
 // of CPU on the WASM backend) while still catching a speaker change within a
