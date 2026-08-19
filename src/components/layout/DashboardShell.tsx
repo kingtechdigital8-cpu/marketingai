@@ -1,6 +1,8 @@
 "use client";
 
 import { ReactNode, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   LayoutDashboard,
@@ -12,11 +14,14 @@ import {
   FolderOpen,
   Coins,
   Settings,
+  Zap,
+  X,
 } from "lucide-react";
 import { Sidebar, type SidebarNavGroup, type SidebarNavItem } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { UserMenu, type UserMenuItem } from "./UserMenu";
 import { PageTransition } from "./PageTransition";
+import { buttonVariants } from "@/components/ui/Button";
 import { useLiveCreditBalance } from "@/lib/use-credit-balance";
 
 const userMenuItems: UserMenuItem[] = [
@@ -49,8 +54,11 @@ const utilityItems: SidebarNavItem[] = [{ label: "Settings", href: "/settings", 
 
 export function DashboardShell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [zeroCreditDismissed, setZeroCreditDismissed] = useState(false);
   const { data: session } = useSession();
   const { balance: creditBalance, totalPurchasedCredits } = useLiveCreditBalance();
+  const pathname = usePathname();
+  const showZeroCreditReminder = creditBalance === 0 && pathname !== "/credits" && !zeroCreditDismissed;
 
   return (
     <div className="flex min-h-screen">
@@ -76,6 +84,27 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         />
         <main className="flex-1 bg-background p-4 sm:p-6">
           <div className="mx-auto w-full max-w-7xl">
+            {showZeroCreditReminder && (
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/25 bg-warning-soft px-4 py-3">
+                <div className="flex items-center gap-2.5 text-sm text-foreground">
+                  <Zap className="h-4 w-4 shrink-0 text-warning" />
+                  <span>Kredit kamu sudah habis. Top up untuk terus menggunakan fitur AI.</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Link href="/credits" className={buttonVariants({ size: "sm" })}>
+                    Top Up
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setZeroCreditDismissed(true)}
+                    aria-label="Tutup"
+                    className="rounded-md p-1.5 text-muted transition-colors hover:bg-white/[.06] hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
             <PageTransition>{children}</PageTransition>
           </div>
         </main>
