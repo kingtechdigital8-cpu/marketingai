@@ -64,10 +64,10 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ config: await serializeConfig(config, request) });
+  return NextResponse.json({ config: await serializeConfig(config) });
 }
 
-export async function DELETE(request: Request) {
+export async function DELETE() {
   const { session, error } = await requireUser();
   if (error) return error;
 
@@ -86,5 +86,5 @@ export async function DELETE(request: Request) {
     );
   }
 
-  return NextResponse.json({ config: await serializeConfig(config, request) });
+  return NextResponse.json({ config: await serializeConfig(config) });
 }

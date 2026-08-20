@@ -13,12 +13,12 @@ const MAX_BUSINESS_INFO_LENGTH = 1000;
 const MAX_CALL_TO_ACTION_LENGTH = 300;
 const MAX_AVOID_TOPICS_LENGTH = 300;
 
-export async function GET(request: Request) {
+export async function GET() {
   const { session, error } = await requireUser();
   if (error) return error;
 
   const config = await prisma.tiktokLiveConfig.findUnique({ where: { userId: session.user.id } });
-  return NextResponse.json({ config: await serializeConfig(config, request) });
+  return NextResponse.json({ config: await serializeConfig(config) });
 }
 
 export async function PUT(request: Request) {
@@ -108,5 +108,5 @@ export async function PUT(request: Request) {
 
   tiktokLiveManager.applyConfig(session.user.id).catch((err) => console.error("[tiktok-live] applyConfig failed:", err));
 
-  return NextResponse.json({ config: await serializeConfig(config, request) });
+  return NextResponse.json({ config: await serializeConfig(config) });
 }

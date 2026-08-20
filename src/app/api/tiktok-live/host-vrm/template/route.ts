@@ -51,5 +51,5 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ config: await serializeConfig(config, request) });
+  return NextResponse.json({ config: await serializeConfig(config) });
 }
