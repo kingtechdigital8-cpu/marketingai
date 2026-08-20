@@ -6,8 +6,10 @@ import { buttonVariants } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Reveal } from "@/components/ui/Reveal";
 import { FaqAccordion } from "@/components/marketing/FaqAccordion";
+import { ServiceShowcaseVisual } from "@/components/marketing/ServiceShowcaseVisual";
 import { TOOLS_CONTENT, getToolBySlug } from "@/lib/tools-content";
-import { OG_IMAGE } from "@/lib/site";
+import { getShowcaseMedia } from "@/lib/marketing-showcase-media";
+import { OG_IMAGE, SITE_URL } from "@/lib/site";
 
 export function generateStaticParams() {
   return TOOLS_CONTENT.map((tool) => ({ slug: tool.slug }));
@@ -57,6 +59,7 @@ export default async function ToolArticlePage({
   if (!tool) notFound();
 
   const otherTools = TOOLS_CONTENT.filter((t) => t.slug !== tool.slug);
+  const media = tool.slug === "auto-clip" ? await getShowcaseMedia() : null;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -76,6 +79,23 @@ export default async function ToolArticlePage({
           acceptedAnswer: { "@type": "Answer", text: faq.answer },
         })),
       },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Beranda", item: SITE_URL },
+          { "@type": "ListItem", position: 2, name: "Fitur", item: `${SITE_URL}/#fitur` },
+          { "@type": "ListItem", position: 3, name: tool.name, item: `${SITE_URL}/fitur/${tool.slug}` },
+        ],
+      },
+      {
+        "@type": "HowTo",
+        name: `Cara Pakai ${tool.name}`,
+        step: tool.steps.map((step, i) => ({
+          "@type": "HowToStep",
+          position: i + 1,
+          text: step,
+        })),
+      },
     ],
   };
 
@@ -87,7 +107,7 @@ export default async function ToolArticlePage({
         <div className="bg-grid pointer-events-none absolute inset-0" />
         <div className="glow-orb animate-float-slow -top-32 left-1/3 h-80 w-80 opacity-50" />
 
-        <div className="relative mx-auto max-w-4xl px-4 pb-16 pt-12 sm:px-6 sm:pt-16">
+        <div className="relative mx-auto max-w-6xl px-4 pb-16 pt-12 sm:px-6 sm:pt-16">
           <nav aria-label="Breadcrumb" className="mb-8 flex items-center gap-1.5 text-xs text-muted">
             <Link href="/" className="hover:text-foreground">
               Beranda
@@ -100,22 +120,28 @@ export default async function ToolArticlePage({
             <span className="text-foreground">{tool.name}</span>
           </nav>
 
-          <Reveal>
-            <span className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-brand-soft text-brand">
-              <tool.icon className="h-6 w-6" />
-            </span>
-            <h1 className="max-w-2xl text-4xl font-bold tracking-tight text-balance sm:text-5xl">{tool.name}</h1>
-            <p className="mt-4 max-w-xl text-lg text-muted">{tool.tagline}</p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href="/register" className={buttonVariants({ size: "lg", className: "group" })}>
-                Coba {tool.name}
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-              </Link>
-              <Link href="/harga" className={buttonVariants({ variant: "outline", size: "lg" })}>
-                Lihat Sistem Kredit
-              </Link>
-            </div>
-          </Reveal>
+          <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-[1.05fr_1fr] lg:gap-10">
+            <Reveal>
+              <span className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-brand-soft text-brand">
+                <tool.icon className="h-6 w-6" />
+              </span>
+              <h1 className="max-w-2xl text-4xl font-bold tracking-tight text-balance sm:text-5xl">{tool.name}</h1>
+              <p className="mt-4 max-w-xl text-lg text-muted">{tool.tagline}</p>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Link href="/register" className={buttonVariants({ size: "lg", className: "group" })}>
+                  Coba {tool.name}
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </Link>
+                <Link href="/harga" className={buttonVariants({ variant: "outline", size: "lg" })}>
+                  Lihat Sistem Kredit
+                </Link>
+              </div>
+            </Reveal>
+
+            <Reveal delay={0.1}>
+              <ServiceShowcaseVisual slug={tool.slug} mediaUrl={media?.clip} />
+            </Reveal>
+          </div>
         </div>
       </section>
 
